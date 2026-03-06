@@ -17,8 +17,8 @@ from flask_cors import CORS
 app = Flask(__name__, static_folder='static')
 CORS(app)
 
-# --- 🔐 SEGURIDAD HÍBRIDA: ARCHIVO O KEY DIRECTA ---
-DEVICE_TOKEN = "CLAVE_INTERNA_BOTS_2026_SEGURA" 
+# --- 🔐 SEGURIDAD HÍBRIDA: ARCHIVO O KEY DIRECTA ---" 
+DEVICE_TOKEN = os.getenv("DEVICE_TOKEN")
 
 @app.before_request
 def check_device_auth():
