@@ -1,0 +1,39 @@
+steps:
+  # 1. Construir la imagen de Docker
+  - name: 'gcloudsdk/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - 'docker build -t europe-southwest1-docker.pkg.dev/$PROJECT_ID/repo-bots/bot-app:$SHORT_SHA .'
+
+  # 2. Subir la imagen al registro
+  - name: 'gcloudsdk/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - 'docker push europe-southwest1-docker.pkg.dev/$PROJECT_ID/repo-bots/bot-app:$SHORT_SHA'
+
+  # 3. Desplegar en Cloud Run con tus 4GB y 2CPUs
+  - name: 'gcloudsdk/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'bot-service'
+      - '--image'
+      - 'europe-southwest1-docker.pkg.dev/$PROJECT_ID/repo-bots/bot-app:$SHORT_SHA'
+      - '--region'
+      - 'europe-southwest1'
+      - '--memory'
+      - '4Gi'
+      - '--cpu'
+      - '2'
+      - '--timeout'
+      - '3600'
+      - '--no-cpu-throttling'
+      - '--allow-unauthenticated' # O quítalo si quieres más restricción
+      - '--update-env-vars'
+      - 'DEVICE_TOKEN=$_DEVICE_TOKEN'
+
+images:
+  - 'europe-southwest1-docker.pkg.dev/$PROJECT_ID/repo-bots/bot-app:$SHORT_SHA'
