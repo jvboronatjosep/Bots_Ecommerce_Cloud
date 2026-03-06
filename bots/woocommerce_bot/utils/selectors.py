@@ -1,0 +1,26 @@
+class Selectors:
+    COLLECTION_ALL = "/shop"  # cambiar a "/tienda" si el idioma es español
+    PRODUCT_LINKS = (
+        "ul.products li.product a.woocommerce-loop-product__link, "
+        "ul.products li.product a.woocommerce-LoopProduct-link"
+    )
+    VARIANT_SELECT  = "table.variations select"
+    VARIANT_RADIO   = "ul.variable-items-wrapper li input[type='radio']"
+    ADD_TO_CART_BTN = "button.single_add_to_cart_button"
+    CART_PAGE_PATH        = "/cart"
+    CART_PROCEED_CHECKOUT = ".wc-proceed-to-checkout a.checkout-button"
+    CHECKOUT_FIRSTNAME = "#billing_first_name"
+    CHECKOUT_LASTNAME  = "#billing_last_name"
+    CHECKOUT_EMAIL     = "#billing_email"
+    CHECKOUT_PHONE     = "#billing_phone"
+    CHECKOUT_ADDRESS1  = "#billing_address_1"
+    CHECKOUT_CITY      = "#billing_city"
+    CHECKOUT_POSTCODE  = "#billing_postcode"
+    CHECKOUT_STATE     = "#billing_state"
+    CHECKOUT_COUNTRY   = "#billing_country"
+    CHECKOUT_DNI       = "#billing_vat, #billing_dni, #billing_nif, #billing_id_number"
+    PAYMENT_METHOD      = "input[name='payment_method']"
+    PAYMENT_TERMS       = "#terms"
+    PAYMENT_PLACE_ORDER = "#place_order"
+    ORDER_RECEIVED = ".woocommerce-order-received"
+    ORDER_NUMBER   = ".woocommerce-order-overview__order strong"

@@ -1,0 +1,32 @@
+SPAIN_ADDRESSES = [
+    {"city": "Madrid",     "province_code": "MD", "zip": "28001"},
+    {"city": "Madrid",     "province_code": "MD", "zip": "28013"},
+    {"city": "Barcelona",  "province_code": "B",  "zip": "08001"},
+    {"city": "Barcelona",  "province_code": "B",  "zip": "08015"},
+    {"city": "Valencia",   "province_code": "V",  "zip": "46001"},
+    {"city": "Valencia",   "province_code": "V",  "zip": "46010"},
+    {"city": "Sevilla",    "province_code": "SE", "zip": "41001"},
+    {"city": "Zaragoza",   "province_code": "Z",  "zip": "50001"},
+    {"city": "Malaga",     "province_code": "MA", "zip": "29001"},
+    {"city": "Bilbao",     "province_code": "BI", "zip": "48001"},
+    {"city": "Alicante",   "province_code": "A",  "zip": "03001"},
+    {"city": "Granada",    "province_code": "GR", "zip": "18001"},
+    {"city": "Murcia",     "province_code": "MU", "zip": "30001"},
+    {"city": "Valladolid", "province_code": "VA", "zip": "47001"},
+    {"city": "Cordoba",    "province_code": "CO", "zip": "14001"},
+    {"city": "Palma",      "province_code": "PM", "zip": "07001"},
+    {"city": "Las Palmas", "province_code": "GC", "zip": "35001"},
+    {"city": "Santander",  "province_code": "S",  "zip": "39001"},
+    {"city": "Pamplona",   "province_code": "NA", "zip": "31001"},
+    {"city": "Vitoria",    "province_code": "VI", "zip": "01001"},
+]
+
+STREET_NAMES = [
+    "Calle Mayor", "Calle del Carmen", "Calle de la Paz",
+    "Avenida de la Constitucion", "Calle Gran Via", "Paseo del Prado",
+    "Calle de Alcala", "Calle de Serrano", "Avenida de America",
+    "Calle de Goya", "Calle de Velazquez", "Paseo de la Castellana",
+    "Calle de Fuencarral", "Calle de Atocha", "Calle de Toledo",
+    "Rambla de Catalunya", "Passeig de Gracia", "Carrer de Balmes",
+    "Calle del Principe", "Calle de la Cruz",
+]

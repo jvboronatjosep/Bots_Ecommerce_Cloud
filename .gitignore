@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+screenshots/
+bot_orders.log
+*.log
+.venv/
+venv/
+env/
+.pytest_cache/
+sclaude.bat
