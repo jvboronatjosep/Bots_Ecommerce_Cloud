@@ -1,19 +1,13 @@
 steps:
-  # 1. Construir la imagen de Docker
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - 'docker build -t europe-southwest1-docker.pkg.dev/$PROJECT_ID/repo-bots/bot-app:$SHORT_SHA .'
+  # 1. Construir la imagen de Docker usando el constructor oficial de Google
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'europe-southwest1-docker.pkg.dev/$PROJECT_ID/repo-bots/bot-app:$SHORT_SHA', '.']
 
-  # 2. Subir la imagen al registro
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - 'docker push europe-southwest1-docker.pkg.dev/$PROJECT_ID/repo-bots/bot-app:$SHORT_SHA'
+  # 2. Subir la imagen al registro de artefactos (Artifact Registry)
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'europe-southwest1-docker.pkg.dev/$PROJECT_ID/repo-bots/bot-app:$SHORT_SHA']
 
-  # 3. Desplegar en Cloud Run
+  # 3. Desplegar en Cloud Run con la configuración de alto rendimiento (4GB RAM / 2 CPUs)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:
@@ -35,8 +29,10 @@ steps:
       - '--update-env-vars'
       - 'DEVICE_TOKEN=$_DEVICE_TOKEN'
 
+# Definir la imagen para que Cloud Build la rastree correctamente
 images:
   - 'europe-southwest1-docker.pkg.dev/$PROJECT_ID/repo-bots/bot-app:$SHORT_SHA'
 
+# Configuración de Logs para evitar errores de permisos con Buckets
 options:
   logging: CLOUD_LOGGING_ONLY
