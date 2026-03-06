@@ -31,9 +31,13 @@ steps:
       - '--timeout'
       - '3600'
       - '--no-cpu-throttling'
-      - '--allow-unauthenticated' # O quítalo si quieres más restricción
+      - '--allow-unauthenticated'
       - '--update-env-vars'
       - 'DEVICE_TOKEN=$_DEVICE_TOKEN'
 
 images:
   - 'europe-southwest1-docker.pkg.dev/$PROJECT_ID/repo-bots/bot-app:$SHORT_SHA'
+
+# --- AQUÍ VA EL BLOQUE DE LOGS ---
+options:
+  logging: CLOUD_LOGGING_ONLY
