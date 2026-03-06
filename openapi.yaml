@@ -1,14 +1,12 @@
-swagger: '2.0'
+openapi: 3.0.0
 info:
   title: Bot-API-Gateway
   description: Gateway oficial con filtrado de rutas y seguridad
   version: 1.0.0
-host: bots-gateway-prod-83hfw8tp.ew.gateway.dev
-schemes:
-  - https
+servers:
+  - url: https://bots-gateway-prod-83hfw8tp.ew.gateway.dev
 
 paths:
-  # Automatización de bots
   /api/auto-run-all:
     post:
       summary: Disparador automático
@@ -16,9 +14,9 @@ paths:
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/api/auto-run-all
       responses:
-        '200': {description: OK}
+        '200':
+          description: OK
 
-  # Acceso principal al Dashboard
   /:
     get:
       summary: Acceso al Dashboard
@@ -26,9 +24,9 @@ paths:
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/
       responses:
-        '200': {description: OK}
+        '200':
+          description: OK
 
-  # Activación de clave dinámica
   /activate/{key}:
     get:
       summary: Activación con clave
@@ -37,13 +35,14 @@ paths:
         - name: key
           in: path
           required: true
-          type: string
+          schema:
+            type: string
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/activate/{key}
       responses:
-        '200': {description: OK}
+        '200':
+          description: OK
 
-  # Recursos estáticos (Obligatorio para que cargue el diseño)
   /static/{proxy*}:
     get:
       summary: Archivos estáticos
@@ -51,4 +50,5 @@ paths:
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/static/{proxy}
       responses:
-        '200': {description: OK}
+        '200':
+          description: OK
