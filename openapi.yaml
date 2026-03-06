@@ -1,0 +1,31 @@
+swagger: '2.0'
+info:
+  title: Bot-API-Gateway
+  description: API Gateway para mis bots
+  version: 1.0.0
+host: BOT-GATEWAY-ID.apigateway.YOUR-PROJECT-ID.cloud.goog
+schemes:
+  - https
+
+paths:
+  # Ruta para los bots (Automatización)
+  /api/auto-run-all:
+    post:
+      summary: Disparador automático
+      operationId: autoRunAll
+      x-google-backend:
+        address: https://bot-service-634498283437.europe-southwest1.run.app/api/auto-run-all
+      responses:
+        '200':
+          description: OK
+
+  # Ruta para el Dashboard (Acceso web)
+  /:
+    get:
+      summary: Acceso al Dashboard
+      operationId: dashboardAccess
+      x-google-backend:
+        address: https://bot-service-634498283437.europe-southwest1.run.app/
+      responses:
+        '200':
+          description: OK
