@@ -37,3 +37,6 @@ steps:
 
 images:
   - 'europe-southwest1-docker.pkg.dev/$PROJECT_ID/repo-bots/bot-app:$SHORT_SHA'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
