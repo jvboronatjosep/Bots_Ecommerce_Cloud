@@ -1,14 +1,15 @@
-openapi: 3.0.3
+openapi: 3.0.0
 info:
   title: Bot-API-Gateway
-  description: Gateway oficial con filtrado de rutas y seguridad
-  version: 1.0.5
+  version: 1.0.6
 servers:
   - url: https://bots-gateway-prod-83hfw8tp.ew.gateway.dev
 paths:
   /:
     get:
       operationId: dashboardAccess
+      security:
+        - api_key: []
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/
       responses:
@@ -24,6 +25,8 @@ paths:
           type: string
     get:
       operationId: apiProxyGet
+      security:
+        - api_key: []
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/{proxy}
         path_translation: APPEND_PATH_TO_ADDRESS
@@ -32,9 +35,18 @@ paths:
           description: OK
     post:
       operationId: apiProxyPost
+      security:
+        - api_key: []
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/{proxy}
         path_translation: APPEND_PATH_TO_ADDRESS
       responses:
         '200':
           description: OK
+
+components:
+  securitySchemes:
+    api_key:
+      type: apiKey
+      name: key
+      in: query
