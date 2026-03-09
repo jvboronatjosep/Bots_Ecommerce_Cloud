@@ -11,7 +11,7 @@ import os
 import signal
 import sys
 from datetime import datetime
-from flask import Flask, jsonify, request, make_response, abort, redirect
+from flask import Flask, jsonify, request, make_response, abort, redirect, send_file
 from flask_cors import CORS
 
 app = Flask(__name__, static_folder='static')
@@ -32,6 +32,14 @@ def check_device_auth():
     auth_cookie = request.cookies.get('device_auth')
     if auth_cookie != DEVICE_TOKEN:
         return jsonify({'error': 'Unauthorized'}), 401
+
+@app.route('/')
+def index():
+    # Serve frontend for local development
+    frontend_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'Bots_Ecommerce_Frontend', 'index.html')
+    if os.path.exists(frontend_path):
+        return send_file(os.path.abspath(frontend_path))
+    return jsonify({'error': 'Frontend not found'}), 404
 
 @app.route('/activate/<key>')
 def activate_device(key):
