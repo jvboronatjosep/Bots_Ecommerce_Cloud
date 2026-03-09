@@ -1,7 +1,7 @@
 swagger: '2.0'
 info:
   title: Bot-API-Gateway
-  version: 1.0.9
+  version: 1.1.0
 host: bots-gateway-prod-83hfw8tp.ew.gateway.dev
 schemes:
   - https
@@ -121,6 +121,60 @@ paths:
           type: string
         - in: path
           name: p3
+          required: true
+          type: string
+      x-google-backend:
+        address: https://bot-service-634498283437.europe-southwest1.run.app/
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: OK
+
+  '/{p1}/{p2}/{p3}/{p4}':
+    get:
+      summary: Proxy GET L4
+      operationId: apiProxyGetL4
+      parameters:
+        - in: path
+          name: p1
+          required: true
+          type: string
+        - in: path
+          name: p2
+          required: true
+          type: string
+        - in: path
+          name: p3
+          required: true
+          type: string
+        - in: path
+          name: p4
+          required: true
+          type: string
+      x-google-backend:
+        address: https://bot-service-634498283437.europe-southwest1.run.app/
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Proxy POST L4
+      operationId: apiProxyPostL4
+      parameters:
+        - in: path
+          name: p1
+          required: true
+          type: string
+        - in: path
+          name: p2
+          required: true
+          type: string
+        - in: path
+          name: p3
+          required: true
+          type: string
+        - in: path
+          name: p4
           required: true
           type: string
       x-google-backend:
