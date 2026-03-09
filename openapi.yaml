@@ -1,32 +1,49 @@
 swagger: '2.0'
 info:
   title: Bot-API-Gateway
-  version: 1.0.7
+  version: 1.0.8
+host: bots-gateway-prod-83hfw8tp.ew.gateway.dev
 schemes:
   - https
-host: bots-gateway-prod-83hfw8tp.ew.gateway.dev
 paths:
   /:
     get:
-      summary: Dashboard
+      summary: Dashboard Access
       operationId: dashboardAccess
+      security:
+        - api_key: []
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/
       responses:
         '200':
           description: OK
 
-  /{proxy}:
-    x-google-backend:
-      address: https://bot-service-634498283437.europe-southwest1.run.app/{proxy}
-      path_translation: APPEND_PATH_TO_ADDRESS
+  '/{proxy}':
     get:
       summary: Proxy GET
+      operationId: apiProxyGet
+      security:
+        - api_key: []
+      x-google-backend:
+        address: https://bot-service-634498283437.europe-southwest1.run.app/{proxy}
+        path_translation: APPEND_PATH_TO_ADDRESS
       responses:
         '200':
           description: OK
     post:
       summary: Proxy POST
+      operationId: apiProxyPost
+      security:
+        - api_key: []
+      x-google-backend:
+        address: https://bot-service-634498283437.europe-southwest1.run.app/{proxy}
+        path_translation: APPEND_PATH_TO_ADDRESS
       responses:
         '200':
           description: OK
+
+securityDefinitions:
+  api_key:
+    type: apiKey
+    name: key
+    in: query
