@@ -892,6 +892,7 @@ async function viewRun(runId) {
   const logRes = await fetch(`${API}/api/runs/${runId}/logs`);
   const logData = await logRes.json();
   renderLogs(logData.logs);
+  //Linea para controlar los logs
   logOffset = logData.logs ? logData.logs.length : 0;
   scrollTerminal();
 
