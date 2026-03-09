@@ -892,7 +892,7 @@ async function viewRun(runId) {
   const logRes = await fetch(`${API}/api/runs/${runId}/logs`);
   const logData = await logRes.json();
   renderLogs(logData.logs);
-  logOffset = logData.total;
+  logOffset = logData.logs ? logData.logs.length : 0;
   scrollTerminal();
 
   // Poll if running
