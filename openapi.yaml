@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Bot-API-Gateway
   description: Gateway oficial con filtrado de rutas y seguridad
-  version: 1.0.4
+  version: 1.0.5
 servers:
   - url: https://bots-gateway-prod-83hfw8tp.ew.gateway.dev
 paths:
@@ -15,7 +15,7 @@ paths:
         '200':
           description: OK
 
-  '/{proxy+}':
+  '/{proxy}':
     parameters:
       - name: proxy
         in: path
