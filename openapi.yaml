@@ -1,23 +1,10 @@
-swagger: '2.0'
+openapi: 3.0.3
 info:
   title: Bot-API-Gateway
-  description: Gateway oficial con filtrado de rutas y seguridad
-  version: 1.0.1
-schemes:
-  - https
-
+  description: Gateway oficial con filtrado de rutas y seguridad para Lextory
+  version: 1.0.2
 paths:
-  # Automatización de bots
-  /api/auto-run-all:
-    post:
-      summary: Disparador automático
-      operationId: autoRunAll
-      x-google-backend:
-        address: https://bot-service-634498283437.europe-southwest1.run.app/api/auto-run-all
-      responses:
-        '200': {description: OK}
-
-  # Acceso principal al Dashboard
+  # Raíz del Dashboard
   /:
     get:
       summary: Acceso al Dashboard
@@ -25,9 +12,10 @@ paths:
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/
       responses:
-        '200': {description: OK}
+        '200':
+          description: OK
 
-  # Activación de clave dinámica (Mapeo corregido)
+  # Activación de clave dinámica
   /activate/{key}:
     get:
       summary: Activación con clave
@@ -36,15 +24,47 @@ paths:
         - name: key
           in: path
           required: true
-          type: string
+          schema:
+            type: string
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/activate/{key}
-        path_translation: APPEND_PATH_TO_ADDRESS
       responses:
-        '200': {description: OK}
+        '200':
+          description: OK
 
-  # Recursos estáticos (Sintaxis de proxy corregida)
-  /static/{path=**}:
+  # Proxy para rutas de la API (GET)
+  /api/{path}:
+    get:
+      summary: Proxy para todas las rutas de la API (GET)
+      operationId: apiProxyGet
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      x-google-backend:
+        address: https://bot-service-634498283437.europe-southwest1.run.app/api/{path}
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Proxy para todas las rutas de la API (POST)
+      operationId: apiProxyPost
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      x-google-backend:
+        address: https://bot-service-634498283437.europe-southwest1.run.app/api/{path}
+      responses:
+        '200':
+          description: OK
+
+  # Recursos estáticos (CSS, JS, Imágenes)
+  /static/{path}:
     get:
       summary: Archivos estáticos
       operationId: staticFiles
@@ -52,8 +72,10 @@ paths:
         - name: path
           in: path
           required: true
-          type: string
+          schema:
+            type: string
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/static/{path}
       responses:
-        '200': {description: OK}
+        '200':
+          description: OK
