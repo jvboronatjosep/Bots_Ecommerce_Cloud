@@ -172,7 +172,10 @@ def get_run(run_id):
 @app.route('/api/runs/<run_id>/logs', methods=['GET'])
 def get_logs(run_id):
     if run_id not in runs: return jsonify({'error': 'Not found'}), 404
-    offset = int(request.args.get('offset', 0))
+    try:
+        offset = int(request.args.get('offset', 0))
+    except (ValueError, TypeError):
+        offset = 0
     return jsonify({'logs': runs[run_id]['logs'][offset:], 'status': runs[run_id]['status']})
 
 @app.route('/api/run/<run_id>/stop', methods=['POST'])
