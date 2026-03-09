@@ -69,9 +69,10 @@ class CheckoutHandler:
         try:
             await self.page.wait_for_url("**/checkouts/**", timeout=20000)
         except Exception:
-            logger.debug("wait_for_url checkouts timed out, url: %s", self.page.url)
-        await self.page.wait_for_load_state("domcontentloaded")
+            logger.warning("wait_for_url checkouts timed out, current url: %s", self.page.url)
+        await self.page.wait_for_load_state("networkidle", timeout=15000)
         await asyncio.sleep(1.5)
+        logger.warning("Checkout page url before email fill: %s", self.page.url)
         email_input = self.page.locator(Selectors.EMAIL_INPUT).first
         await email_input.wait_for(state="visible", timeout=20000)
         await email_input.click()
