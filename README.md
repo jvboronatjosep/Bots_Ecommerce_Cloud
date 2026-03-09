@@ -170,6 +170,7 @@ python -m camoufox fetch
 # 6. Configurar variables de entorno
 # Edita el archivo .env en la raíz del proyecto (un solo archivo para todos los bots)
 
+# --- Shopify
 # 7. Arrancar
 python server.py
 ```
