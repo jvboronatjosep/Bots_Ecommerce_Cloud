@@ -19,7 +19,7 @@ class Selectors:
     CART_PAGE_CHECKOUT = "button[name='checkout']"
 
     # Checkout - Contact
-    EMAIL_INPUT = "input#email"
+    EMAIL_INPUT = "input#email, input[type='email'], input[autocomplete='email'], input[name='email']"
 
     # Checkout - Shipping address (use id/name selectors matching the actual store)
     FIRST_NAME = "input[autocomplete='shipping given-name']:not([id^='autofill'])"

@@ -66,7 +66,7 @@ class CheckoutHandler:
     async def _fill_contact_info(self):
         logger.debug("Filling contact: %s", self.customer.email)
         email_input = self.page.locator(Selectors.EMAIL_INPUT).first
-        await email_input.wait_for(state="visible", timeout=15000)
+        await email_input.wait_for(state="visible", timeout=20000)
         await email_input.click()
         await self.delays.wait("email_before")
         await email_input.fill(self.customer.email)
