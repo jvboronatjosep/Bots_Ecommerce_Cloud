@@ -1,0 +1,51 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+    run.googleapis.com/maxScale: '100'
+    run.googleapis.com/urls: '["https://bot-service-634498283437.europe-southwest1.run.app","https://bot-service-phvuzjeq5q-no.a.run.app"]'
+  labels:
+    cloud.googleapis.com/location: europe-southwest1
+    run.googleapis.com/satisfiesPzs: 'true'
+  name: bot-service
+  namespace: '634498283437'
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: '100'
+        autoscaling.knative.dev/minScale: '1'
+        run.googleapis.com/client-name: gcloud
+        run.googleapis.com/client-version: 559.0.0
+        run.googleapis.com/cpu-throttling: 'false'
+        run.googleapis.com/startup-cpu-boost: 'true'
+      labels:
+        client.knative.dev/nonce: otkndjoidg
+        run.googleapis.com/startupProbeType: Default
+    spec:
+      containerConcurrency: 80
+      containers:
+      - env:
+        - name: DEVICE_TOKEN
+          value: 9f3b7c1e5a4d8f6b2c1e9a7d3f8b6c4a2d1e7f9c3b5a8d6e1f2c4b7a9d3e6f1
+        image: europe-southwest1-docker.pkg.dev/botsecommerce/repo-bots/bot-app:3f8e7f0
+        ports:
+        - containerPort: 8080
+          name: http1
+        resources:
+          limits:
+            cpu: '4'
+            memory: 8Gi
+        startupProbe:
+          failureThreshold: 3
+          periodSeconds: 240
+          tcpSocket:
+            port: 8080
+          timeoutSeconds: 240
+      serviceAccountName: 634498283437-compute@developer.gserviceaccount.com
+      timeoutSeconds: 3600
+  traffic:
+  - latestRevision: true
+    percent: 100
