@@ -18,25 +18,127 @@ paths:
         '200':
           description: OK
 
-  '/{proxy}':
+  '/{p1}':
     get:
-      summary: Proxy GET
-      operationId: apiProxyGet
+      summary: Proxy GET L1
+      operationId: apiProxyGetL1
+      parameters:
+        - in: path
+          name: p1
+          required: true
+          type: string
       security:
         - api_key: []
       x-google-backend:
-        address: https://bot-service-634498283437.europe-southwest1.run.app/{proxy}
+        address: https://bot-service-634498283437.europe-southwest1.run.app/
         path_translation: APPEND_PATH_TO_ADDRESS
       responses:
         '200':
           description: OK
     post:
-      summary: Proxy POST
-      operationId: apiProxyPost
+      summary: Proxy POST L1
+      operationId: apiProxyPostL1
+      parameters:
+        - in: path
+          name: p1
+          required: true
+          type: string
       security:
         - api_key: []
       x-google-backend:
-        address: https://bot-service-634498283437.europe-southwest1.run.app/{proxy}
+        address: https://bot-service-634498283437.europe-southwest1.run.app/
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: OK
+
+  '/{p1}/{p2}':
+    get:
+      summary: Proxy GET L2
+      operationId: apiProxyGetL2
+      parameters:
+        - in: path
+          name: p1
+          required: true
+          type: string
+        - in: path
+          name: p2
+          required: true
+          type: string
+      security:
+        - api_key: []
+      x-google-backend:
+        address: https://bot-service-634498283437.europe-southwest1.run.app/
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Proxy POST L2
+      operationId: apiProxyPostL2
+      parameters:
+        - in: path
+          name: p1
+          required: true
+          type: string
+        - in: path
+          name: p2
+          required: true
+          type: string
+      security:
+        - api_key: []
+      x-google-backend:
+        address: https://bot-service-634498283437.europe-southwest1.run.app/
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: OK
+
+  '/{p1}/{p2}/{p3}':
+    get:
+      summary: Proxy GET L3
+      operationId: apiProxyGetL3
+      parameters:
+        - in: path
+          name: p1
+          required: true
+          type: string
+        - in: path
+          name: p2
+          required: true
+          type: string
+        - in: path
+          name: p3
+          required: true
+          type: string
+      security:
+        - api_key: []
+      x-google-backend:
+        address: https://bot-service-634498283437.europe-southwest1.run.app/
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Proxy POST L3
+      operationId: apiProxyPostL3
+      parameters:
+        - in: path
+          name: p1
+          required: true
+          type: string
+        - in: path
+          name: p2
+          required: true
+          type: string
+        - in: path
+          name: p3
+          required: true
+          type: string
+      security:
+        - api_key: []
+      x-google-backend:
+        address: https://bot-service-634498283437.europe-southwest1.run.app/
         path_translation: APPEND_PATH_TO_ADDRESS
       responses:
         '200':
