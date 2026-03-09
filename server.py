@@ -31,30 +31,7 @@ def check_device_auth():
     
     auth_cookie = request.cookies.get('device_auth')
     if auth_cookie != DEVICE_TOKEN:
-        return '''
-        <html>
-            <head><title>Acceso Interno</title></head>
-            <body style="font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#f0f2f5; margin:0;">
-                <div style="background:white; padding:40px; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.1); text-align:center; max-width:400px; width:90%;">
-                    <h2>🛡️ Dispositivo no autorizado</h2>
-                    <p>Sube tu archivo .txt de acceso para entrar.</p>
-                    <input type="file" id="keyFile" style="margin:20px 0;"><br>
-                    <button onclick="uploadKey()" style="background:#007bff; color:white; border:none; padding:12px 24px; border-radius:6px; cursor:pointer;">Validar y Entrar</button>
-                </div>
-                <script>
-                    function uploadKey() {
-                        const file = document.getElementById('keyFile').files[0];
-                        if (!file) return alert('Selecciona el archivo');
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            window.location.href = '/activate/' + encodeURIComponent(e.target.result.trim());
-                        };
-                        reader.readAsText(file);
-                    }
-                </script>
-            </body>
-        </html>
-        ''', 403
+        return jsonify({'error': 'Unauthorized'}), 401
 
 @app.route('/activate/<key>')
 def activate_device(key):
@@ -147,10 +124,6 @@ def start_run():
     )
     if error: return jsonify({'error': error}), 400
     return jsonify({'run_id': run_id, 'status': 'started'})
-
-@app.route('/')
-def index():
-    return send_from_directory('static', 'index.html')
 
 @app.route('/api/bots', methods=['GET'])
 def get_bots():

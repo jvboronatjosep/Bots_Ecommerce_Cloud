@@ -1,25 +1,49 @@
 swagger: '2.0'
 info:
   title: Bot-API-Gateway
-  version: 1.1.0
+  version: 1.2.0
 host: bots-gateway-prod-83hfw8tp.ew.gateway.dev
 schemes:
   - https
+
+x-google-backend:
+  address: https://FRONTEND_SERVICE_URL/
+  path_translation: APPEND_PATH_TO_ADDRESS
+
 paths:
+
+  # ── FRONTEND (HTML dashboard) ──────────────────────────────────────────────
   /:
     get:
-      summary: Dashboard Access
-      operationId: dashboardAccess
+      summary: Dashboard
+      operationId: dashboardRoot
       x-google-backend:
-        address: https://bot-service-634498283437.europe-southwest1.run.app/
+        address: https://FRONTEND_SERVICE_URL/
       responses:
         '200':
           description: OK
 
-  '/{p1}':
+  # ── BACKEND (API + auth) ───────────────────────────────────────────────────
+  '/activate/{key}':
     get:
-      summary: Proxy GET L1
-      operationId: apiProxyGetL1
+      summary: Activate device
+      operationId: activateDevice
+      parameters:
+        - in: path
+          name: key
+          required: true
+          type: string
+      x-google-backend:
+        address: https://bot-service-634498283437.europe-southwest1.run.app/
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: OK
+
+  '/api/{p1}':
+    get:
+      summary: API L1 GET
+      operationId: apiL1Get
       parameters:
         - in: path
           name: p1
@@ -32,8 +56,8 @@ paths:
         '200':
           description: OK
     post:
-      summary: Proxy POST L1
-      operationId: apiProxyPostL1
+      summary: API L1 POST
+      operationId: apiL1Post
       parameters:
         - in: path
           name: p1
@@ -46,10 +70,10 @@ paths:
         '200':
           description: OK
 
-  '/{p1}/{p2}':
+  '/api/{p1}/{p2}':
     get:
-      summary: Proxy GET L2
-      operationId: apiProxyGetL2
+      summary: API L2 GET
+      operationId: apiL2Get
       parameters:
         - in: path
           name: p1
@@ -66,8 +90,8 @@ paths:
         '200':
           description: OK
     post:
-      summary: Proxy POST L2
-      operationId: apiProxyPostL2
+      summary: API L2 POST
+      operationId: apiL2Post
       parameters:
         - in: path
           name: p1
@@ -84,10 +108,10 @@ paths:
         '200':
           description: OK
 
-  '/{p1}/{p2}/{p3}':
+  '/api/{p1}/{p2}/{p3}':
     get:
-      summary: Proxy GET L3
-      operationId: apiProxyGetL3
+      summary: API L3 GET
+      operationId: apiL3Get
       parameters:
         - in: path
           name: p1
@@ -108,8 +132,8 @@ paths:
         '200':
           description: OK
     post:
-      summary: Proxy POST L3
-      operationId: apiProxyPostL3
+      summary: API L3 POST
+      operationId: apiL3Post
       parameters:
         - in: path
           name: p1
@@ -130,10 +154,10 @@ paths:
         '200':
           description: OK
 
-  '/{p1}/{p2}/{p3}/{p4}':
+  '/api/{p1}/{p2}/{p3}/{p4}':
     get:
-      summary: Proxy GET L4
-      operationId: apiProxyGetL4
+      summary: API L4 GET
+      operationId: apiL4Get
       parameters:
         - in: path
           name: p1
@@ -158,8 +182,8 @@ paths:
         '200':
           description: OK
     post:
-      summary: Proxy POST L4
-      operationId: apiProxyPostL4
+      summary: API L4 POST
+      operationId: apiL4Post
       parameters:
         - in: path
           name: p1
