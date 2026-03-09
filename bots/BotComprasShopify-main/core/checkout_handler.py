@@ -65,6 +65,13 @@ class CheckoutHandler:
 
     async def _fill_contact_info(self):
         logger.debug("Filling contact: %s", self.customer.email)
+        # Wait for Shopify checkout to fully load (client-side redirects after cart)
+        try:
+            await self.page.wait_for_url("**/checkouts/**", timeout=20000)
+        except Exception:
+            logger.debug("wait_for_url checkouts timed out, url: %s", self.page.url)
+        await self.page.wait_for_load_state("domcontentloaded")
+        await asyncio.sleep(1.5)
         email_input = self.page.locator(Selectors.EMAIL_INPUT).first
         await email_input.wait_for(state="visible", timeout=20000)
         await email_input.click()
