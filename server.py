@@ -11,7 +11,7 @@ import os
 import signal
 import sys
 from datetime import datetime
-from flask import Flask, jsonify, request, send_from_directory, make_response, abort, redirect, url_for
+from flask import Flask, jsonify, request, make_response, abort, redirect
 from flask_cors import CORS
 
 app = Flask(__name__, static_folder='static')
