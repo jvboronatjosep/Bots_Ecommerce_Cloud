@@ -1,7 +1,7 @@
 swagger: '2.0'
 info:
   title: Bot-API-Gateway
-  version: 1.0.8
+  version: 1.0.9
 host: bots-gateway-prod-83hfw8tp.ew.gateway.dev
 schemes:
   - https
@@ -10,8 +10,6 @@ paths:
     get:
       summary: Dashboard Access
       operationId: dashboardAccess
-      security:
-        - api_key: []
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/
       responses:
@@ -27,8 +25,6 @@ paths:
           name: p1
           required: true
           type: string
-      security:
-        - api_key: []
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/
         path_translation: APPEND_PATH_TO_ADDRESS
@@ -43,8 +39,6 @@ paths:
           name: p1
           required: true
           type: string
-      security:
-        - api_key: []
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/
         path_translation: APPEND_PATH_TO_ADDRESS
@@ -65,8 +59,6 @@ paths:
           name: p2
           required: true
           type: string
-      security:
-        - api_key: []
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/
         path_translation: APPEND_PATH_TO_ADDRESS
@@ -85,8 +77,6 @@ paths:
           name: p2
           required: true
           type: string
-      security:
-        - api_key: []
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/
         path_translation: APPEND_PATH_TO_ADDRESS
@@ -111,8 +101,6 @@ paths:
           name: p3
           required: true
           type: string
-      security:
-        - api_key: []
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/
         path_translation: APPEND_PATH_TO_ADDRESS
@@ -135,17 +123,9 @@ paths:
           name: p3
           required: true
           type: string
-      security:
-        - api_key: []
       x-google-backend:
         address: https://bot-service-634498283437.europe-southwest1.run.app/
         path_translation: APPEND_PATH_TO_ADDRESS
       responses:
         '200':
           description: OK
-
-securityDefinitions:
-  api_key:
-    type: apiKey
-    name: key
-    in: query
