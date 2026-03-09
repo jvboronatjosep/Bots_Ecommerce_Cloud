@@ -7,7 +7,7 @@ schemes:
   - https
 
 x-google-backend:
-  address: https://FRONTEND_SERVICE_URL/
+  address: https://frontend-service-634498283437.europe-southwest1.run.app/
   path_translation: APPEND_PATH_TO_ADDRESS
 
 paths:
@@ -18,7 +18,7 @@ paths:
       summary: Dashboard
       operationId: dashboardRoot
       x-google-backend:
-        address: https://FRONTEND_SERVICE_URL/
+        address: https://frontend-service-634498283437.europe-southwest1.run.app/
       responses:
         '200':
           description: OK
