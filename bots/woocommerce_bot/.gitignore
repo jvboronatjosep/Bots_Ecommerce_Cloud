@@ -1,8 +1,0 @@
-__pycache__/
-*.py[cod]
-.env
-screenshots/
-bot_orders.log
-*.log
-.venv/
-venv/
