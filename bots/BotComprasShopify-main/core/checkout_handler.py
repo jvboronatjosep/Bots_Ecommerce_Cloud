@@ -73,6 +73,14 @@ class CheckoutHandler:
         await self.page.wait_for_load_state("networkidle", timeout=15000)
         await asyncio.sleep(1.5)
         logger.warning("Checkout page url before email fill: %s", self.page.url)
+        # New Shopify CN checkout may show "Continue without account" gate first
+        try:
+            guest_btn = self.page.locator(Selectors.CHECKOUT_CONTINUE_GUEST).first
+            await guest_btn.wait_for(state="visible", timeout=3000)
+            await guest_btn.click()
+            await asyncio.sleep(1.5)
+        except Exception:
+            pass  # No gate, proceed directly to email form
         email_input = self.page.locator(Selectors.EMAIL_INPUT).first
         await email_input.wait_for(state="visible", timeout=20000)
         await email_input.click()

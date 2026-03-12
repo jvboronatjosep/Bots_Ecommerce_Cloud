@@ -22,8 +22,8 @@ class CartManager:
         try:
             await add_btn.wait_for(state="visible", timeout=10000)
             await add_btn.click()
-            # Wait for cart drawer to open
-            await asyncio.sleep(1.5)
+            # Wait for cart drawer to open and button to become enabled
+            await asyncio.sleep(3.0)
             if self.delays:
                 await self.delays.wait("add_to_cart")
             log_info("Producto añadido al carrito [green]✓[/green]")
@@ -36,7 +36,7 @@ class CartManager:
         # Try checkout button in cart drawer first
         drawer_btn = self.page.locator(Selectors.CART_DRAWER_CHECKOUT).first
         try:
-            await drawer_btn.wait_for(state="visible", timeout=3000)
+            await drawer_btn.wait_for(state="visible", timeout=8000)
             await drawer_btn.click()
             logger.debug("Clicked checkout in cart drawer")
             await self.page.wait_for_load_state("domcontentloaded")
@@ -54,7 +54,7 @@ class CartManager:
 
         checkout_btn = self.page.locator(Selectors.CART_PAGE_CHECKOUT).first
         try:
-            await checkout_btn.wait_for(state="visible", timeout=10000)
+            await checkout_btn.wait_for(state="visible", timeout=15000)
             await checkout_btn.click()
             logger.debug("Clicked checkout on cart page")
             await self.page.wait_for_load_state("domcontentloaded")

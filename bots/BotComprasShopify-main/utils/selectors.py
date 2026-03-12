@@ -13,10 +13,17 @@ class Selectors:
     VARIANT_SELECT = "select[name*='option'], .product-form__input select"
 
     # Cart drawer - checkout button inside the drawer that opens after add-to-cart
-    CART_DRAWER_CHECKOUT = "cart-drawer button[name='checkout']"
+    CART_DRAWER_CHECKOUT = "cart-drawer button[name='checkout']:not([disabled])"
 
     # Cart page fallback
-    CART_PAGE_CHECKOUT = "button[name='checkout']"
+    CART_PAGE_CHECKOUT = "button[name='checkout']:not([disabled])"
+
+    # New Shopify checkout (CN): "Continue without account" gate
+    CHECKOUT_CONTINUE_GUEST = (
+        "button:has-text('Continue as guest'), a:has-text('Continue as guest'), "
+        "button:has-text('Continuar sin cuenta'), a:has-text('Continuar sin cuenta'), "
+        "button:has-text('Continuar como invitado'), button:has-text('Guest checkout')"
+    )
 
     # Checkout - Contact
     EMAIL_INPUT = "input#email, input[type='email'], input[autocomplete='email'], input[name='email']"
