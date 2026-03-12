@@ -502,11 +502,9 @@ logOffset += logData.logs ? logData.logs.length : 0;
 ---
 
 ### 7.6 Separación de frontend y backend en dos servicios Cloud Run
-
 **Motivación:** Reducir costes. El bot-service necesita 4 CPU y 8 GB para ejecutar navegadores. Antes, también servía el HTML estático con esos mismos recursos caros. Separando el frontend a un servicio independiente de 1 CPU / 256 MB, el coste del frontend se reduce drásticamente.
 
 **Cambios realizados:**
-
 1. Eliminado el código de servicio de ficheros estáticos de `server.py` (ruta `GET /` y `send_from_directory`)
 2. Eliminada la carpeta `static/` del repositorio backend
 3. Creado nuevo repositorio `Bots_Ecommerce_Frontend` con:
@@ -556,7 +554,6 @@ EMAIL_INPUT = "input#email, input[type='email'], input[autocomplete='email'], in
 ## 8. Flujo completo de una ejecución
 
 ### Ejecución manual desde el dashboard
-
 1. El usuario abre `https://bots-gateway-prod-83hfw8tp.ew.gateway.dev/`
 2. El Gateway enruta a `frontend-service`, que devuelve `index.html`
 3. El usuario pulsa "Ejecutar" en un bot → el JS hace `POST /api/run` con `{bot_id, orders, headless}`
@@ -567,14 +564,12 @@ EMAIL_INPUT = "input#email, input[type='email'], input[autocomplete='email'], in
 8. Cuando el proceso termina, el status cambia a `completed` o `failed`
 
 ### Ejecución automática (Cloud Scheduler)
-
 1. A las 06:00 el scheduler hace `POST https://bots-gateway-prod.../api/auto-run-all` con header `X-CloudScheduler: true`
 2. El Gateway enruta a `bot-service`
 3. Flask bypasea la autenticación por el header y lanza los 4 bots en paralelo
 4. Cada bot genera 10 pedidos de prueba en su tienda correspondiente
 
 ### Flujo del bot de Shopify (por pedido)
-
 ```
 1. Abrir nuevo contexto de navegador (Camoufox/Firefox antidetección)
 2. Inyectar cookies de sesión (bypass página de contraseña)
@@ -601,22 +596,18 @@ Cada paso incluye delays aleatorios distribuidos (entre 10 y 20 segundos en tota
 ## 9. Decisiones de diseño y evolución del proyecto
 
 ### Camoufox como motor de navegador
-
 Se eligió **Camoufox** (wrapper antidetección sobre Firefox) en lugar de Playwright puro con Chromium. Camoufox modifica las huellas del navegador (user agent, canvas fingerprint, WebGL, etc.) para reducir la probabilidad de que Shopify detecte el bot.
 
 ### Almacenamiento de logs en memoria
-
 Los logs de ejecución se guardan en un diccionario Python en memoria (`runs = {}`), sin base de datos. Esto es sencillo y suficiente porque:
 - Los logs solo necesitan persistir mientras el proceso de Gunicorn esté activo
 - Con 1 worker (un solo proceso), todos los threads comparten el mismo diccionario
 - Al reiniciar el servicio, el historial se pierde (aceptable para el caso de uso)
 
 ### Un solo worker de Gunicorn
-
 La configuración `--workers 1 --threads 8` es deliberada. Con múltiples workers (múltiples procesos Python), cada worker tendría su propia copia del diccionario `runs`, y el dashboard podría conectar a un worker que no tiene los logs del bot que está ejecutando otro worker. Con un solo worker y múltiples threads, todos comparten el mismo espacio de memoria.
 
 ### Separación frontend/backend
-
 La separación se hizo principalmente por **reducción de costes**. El frontend es HTML/CSS/JS puro y no necesita Python ni navegadores — basta con nginx en 256 MB. El backend necesita 4 CPU y 8 GB para Playwright. Mantenerlos juntos era desperdiciar recursos de cómputo costosos para servir un fichero HTML estático.
 
 ---
