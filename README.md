@@ -1,18 +1,12 @@
-# 🤖 Bot Control Dashboard
-
+# 🤖 Bot Control Das
 Panel web para gestionar y ejecutar bots de compras automáticas en Shopify, WooCommerce y PrestaShop.
-
 ---
-
 ## 📋 Requisitos previos
-
 - **Python 3.10+**
 - **pip**
-
 ---
 
 ## 🚀 Instalación
-
 ### 1. Crear entorno virtual (recomendado)
 
 ```bash
@@ -37,7 +31,6 @@ Esto instala:
 
 
 ### 3. Instalar navegadores de Playwright
-
 Después de instalar Playwright, hay que descargar los navegadores:
 
 ```bash
@@ -102,9 +95,7 @@ PRESTASHOP8_BOT_HEADLESS=false
 ---
 
 ## ▶️ Ejecución
-
 ### Iniciar el dashboard web
-
 ```bash
 python server.py
 ```
@@ -134,7 +125,6 @@ python main.py
 ---
 
 ## 📁 Estructura del proyecto
-
 ```
 ├── server.py                    # Servidor Flask (dashboard)
 ├── requirements.txt             # Dependencias del servidor
@@ -148,9 +138,7 @@ python main.py
 ```
 
 ---
-
 ## 🛠️ Resumen de comandos de instalación
-
 ```bash
 # 1. Entorno virtual
 python3 -m venv .venv && source .venv/bin/activate
