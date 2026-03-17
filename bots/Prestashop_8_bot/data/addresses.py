@@ -1,5 +1,4 @@
-# province_id = PrestaShop state ID for Spain
-# These IDs are standard PrestaShop Spain province IDs
+# province_id = PrestaShop state ID para España (IDs estándar de PrestaShop)
 SPAIN_ADDRESSES = [
     {"city": "Madrid",      "province_code": "M",  "zip": "28001", "state_id": "310"},
     {"city": "Madrid",      "province_code": "M",  "zip": "28013", "state_id": "310"},

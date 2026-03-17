@@ -5,7 +5,7 @@ class Selectors:
 
     # ── Product page ──────────────────────────────────────────────────────────
     VARIANT_SELECT  = "select.form-control"          # PS1.7 modern: <select> dropdown
-    ADD_TO_CART_BTN = "button.add-to-cart"           # Same as PS8
+    ADD_TO_CART_BTN = "button.add-to-cart"
 
     # ── Cart page ─────────────────────────────────────────────────────────────
     CART_PROCEED    = ".cart-detailed-actions a.btn, a[href*='controller=order'], a[href*='checkout']"

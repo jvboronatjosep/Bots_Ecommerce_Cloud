@@ -65,7 +65,6 @@ class CheckoutHandler:
             await self.page.goto(self.settings.store_url.rstrip("/") + "/pedido", wait_until="domcontentloaded")
             await asyncio.sleep(2.0)
 
-        # Gender radio
         try:
             gender_sel = Selectors.GUEST_GENDER_MRS if random.random() < 0.5 else Selectors.GUEST_GENDER_MR
             await self.page.evaluate(f'() => {{ const r = document.querySelector("{gender_sel}"); if(r) r.click(); }}')
@@ -159,7 +158,6 @@ class CheckoutHandler:
         logger.debug("DNI fill result: %s (value: %s)", dni_filled, self.customer.dni)
         await asyncio.sleep(0.3)
 
-        # Select Estado (province) dropdown
         if state_id:
             state_selected = await self.page.evaluate(f"""
                 () => {{
@@ -179,7 +177,6 @@ class CheckoutHandler:
 
         await self._screenshot("step2_filled")
 
-        # Click CONTINUAR
         try:
             btn = self.page.locator("#checkout-addresses-step button[name='confirm-addresses']").first
             await btn.wait_for(state="visible", timeout=5000)

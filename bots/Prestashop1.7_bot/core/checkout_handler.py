@@ -66,7 +66,6 @@ class CheckoutHandler:
             )
             await asyncio.sleep(2.0)
 
-        # Gender
         try:
             gender_sel = Selectors.GUEST_GENDER_MRS if random.random() < 0.5 else Selectors.GUEST_GENDER_MR
             await self.page.evaluate(f'() => {{ const r = document.querySelector("{gender_sel}"); if(r) r.click(); }}')
@@ -81,7 +80,7 @@ class CheckoutHandler:
         await self._fill(Selectors.GUEST_EMAIL, self.customer.email)
         await self.delays.wait("email_after")
 
-        # Required checkboxes
+        # Marca solo los checkboxes requeridos (ej: gdpr, privacidad)
         await self.page.evaluate("""
             () => document.querySelectorAll(
                 '#checkout-personal-information-step input[type="checkbox"]'
@@ -116,7 +115,6 @@ class CheckoutHandler:
         await self._js_fill("field-dni", self.customer.dni)
         await asyncio.sleep(0.3)
 
-        # Province dropdown
         state_id = await self._resolve_state_id()
         if state_id:
             await self.page.evaluate(f"""
@@ -131,7 +129,6 @@ class CheckoutHandler:
             await asyncio.sleep(0.5)
             logger.debug("Province selected: %s", state_id)
 
-        # Click CONTINUAR
         try:
             btn = self.page.locator("#checkout-addresses-step button[name='confirm-addresses']").first
             await btn.wait_for(state="visible", timeout=5000)

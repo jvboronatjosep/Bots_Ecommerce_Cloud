@@ -17,7 +17,6 @@ from flask_cors import CORS
 app = Flask(__name__, static_folder='static')
 CORS(app)
 
-# --- 🔐 SEGURIDAD HÍBRIDA: ARCHIVO O KEY DIRECTA ---" 
 DEVICE_TOKEN = os.getenv("DEVICE_TOKEN")
 
 @app.before_request
@@ -49,7 +48,6 @@ def activate_device(key):
         return resp
     return "<h1>❌ Llave no válida</h1>", 403
 
-# --- 🤖 CONFIGURACIÓN DE BOTS ---
 BOTS = {
     "shopify": {"id": "shopify", "name": "Shopify Bot", "path": "bots/BotComprasShopify-main", "color": "#96bf48", "icon": "🛍️"},
     "prestashop8": {"id": "prestashop8", "name": "PrestaShop 8 Bot", "path": "bots/Prestashop_8_bot", "color": "#df0067", "icon": "🏪"},
@@ -104,8 +102,6 @@ def execute_bot_logic(bot_id, orders=10, headless=True, extra_params=None):
         return run_id, None
     except Exception as e:
         return None, str(e)
-
-# --- 🚀 RUTAS DE API ---
 
 @app.route('/api/auto-run-all', methods=['POST', 'GET'])
 def auto_run_all():

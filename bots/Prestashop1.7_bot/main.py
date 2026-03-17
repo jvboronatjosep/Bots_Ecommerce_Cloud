@@ -55,12 +55,10 @@ async def process_single_order(
 
         navigator = StoreNavigator(page, settings, delays)
 
-        # Pick random product(s)
         num = random.randint(settings.min_products_per_order, settings.max_products_per_order)
         selected = random.sample(product_urls, min(num, len(product_urls)))
         logger.info("Producto seleccionado (%d)", len(selected))
 
-        # Add to cart
         cart_mgr = CartManager(page, settings, delays)
         added = 0
         for url in selected:
@@ -74,11 +72,9 @@ async def process_single_order(
         if added == 0:
             raise Exception("Could not add any products to cart")
 
-        # Proceed to checkout
         if not await cart_mgr.proceed_to_checkout():
             raise Exception("Failed to proceed to checkout")
 
-        # Complete checkout as guest
         checkout = CheckoutHandler(page, settings, customer, delays)
         result = await checkout.complete_checkout(order_index, total_orders)
         result.customer_email = customer.email
