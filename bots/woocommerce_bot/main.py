@@ -27,6 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--headless", action="store_true", help="Ejecutar en modo headless")
     parser.add_argument("--slow-mo",  type=int,   help="Slow motion delay en ms")
     parser.add_argument("--delay",    type=float, default=None, help="Delay entre pedidos (segundos)")
+    parser.add_argument("--province", type=str,   default=None, help="Provincia para las direcciones (ej: Valencia, MD, B)")
     return parser.parse_args()
 
 async def process_single_order(
@@ -82,9 +83,10 @@ async def run_bot():
     if args.headless: settings.headless = True
     if args.slow_mo: settings.slow_mo = args.slow_mo
     if args.delay is not None: settings.delay_between_orders = args.delay
+    if args.province: settings.province = args.province
 
     logger = setup_logger(settings)
-    customer_gen = CustomerGenerator()
+    customer_gen = CustomerGenerator(province=settings.province)
     browser_mgr = BrowserManager(settings)
     results = []
 

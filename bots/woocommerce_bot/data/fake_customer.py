@@ -7,7 +7,10 @@ import uuid
 from dataclasses import dataclass
 from typing import Optional
 from faker import Faker
-from data.addresses import SPAIN_ADDRESSES, STREET_NAMES, PROVINCE_BY_ZIP_PREFIX
+from data.addresses import (
+    SPAIN_ADDRESSES, STREET_NAMES,
+    PROVINCE_BY_ZIP_PREFIX, PROVINCE_PREFIXES, PROVINCE_NAME_TO_CODE,
+)
 
 def _sanitize_for_email(text: str) -> str:
     normalized = unicodedata.normalize("NFD", text)
@@ -68,8 +71,62 @@ LAST_NAMES = [
     "Cruz","Calvo","Gallego","Vidal","León","Cabrera","Ibáñez","Herrera",
 ]
 
-def _fetch_address_from_api() -> dict:
-    """Obtiene una dirección española real desde randomuser.me. Fallback al array estático si falla."""
+def _resolve_province_code(province: str) -> str:
+    """Convierte nombre de provincia o código en código normalizado (ej: 'Valencia' → 'V')."""
+    normalized = province.strip().lower()
+    # Si ya es un código válido (ej: "V", "MD", "B")
+    if province.strip().upper() in PROVINCE_PREFIXES:
+        return province.strip().upper()
+    return PROVINCE_NAME_TO_CODE.get(normalized, province.strip().upper())
+
+
+def _fetch_street_from_randomuser() -> str:
+    """Obtiene solo el nombre de calle desde randomuser.me."""
+    try:
+        with urllib.request.urlopen("https://randomuser.me/api/?nat=es", timeout=5) as resp:
+            data = json.loads(resp.read())
+        loc = data["results"][0]["location"]
+        return f"{loc['street']['name']} {loc['street']['number']}"
+    except Exception:
+        return f"{random.choice(STREET_NAMES)} {random.randint(1, 150)}"
+
+
+def _fetch_address_for_province(province_code: str) -> dict:
+    """Genera una dirección coherente (ciudad + CP) dentro de la provincia especificada."""
+    prefix = PROVINCE_PREFIXES.get(province_code)
+    if prefix:
+        # Intentar hasta 5 CPs aleatorios en esa provincia via zippopotam.us
+        for _ in range(5):
+            cp = prefix + str(random.randint(1, 999)).zfill(3)
+            try:
+                url = f"https://api.zippopotam.us/es/{cp}"
+                with urllib.request.urlopen(url, timeout=5) as resp:
+                    data = json.loads(resp.read())
+                places = data.get("places", [])
+                if places:
+                    city = places[0]["place name"]
+                    street = _fetch_street_from_randomuser()
+                    return {"address1": street, "city": city, "zip_code": cp, "province_code": province_code}
+            except Exception:
+                continue
+
+    # Fallback: usar datos estáticos filtrados por provincia
+    province_addrs = [a for a in SPAIN_ADDRESSES if a["province_code"] == province_code]
+    if not province_addrs:
+        province_addrs = SPAIN_ADDRESSES
+    addr = random.choice(province_addrs)
+    return {
+        "address1": f"{random.choice(STREET_NAMES)} {random.randint(1, 150)}",
+        "city": addr["city"],
+        "zip_code": addr["zip"],
+        "province_code": addr["province_code"],
+    }
+
+
+def _fetch_address_from_api(province_code: str = None) -> dict:
+    """Obtiene una dirección española real. Si se especifica provincia, los datos son de esa provincia."""
+    if province_code:
+        return _fetch_address_for_province(province_code)
     try:
         with urllib.request.urlopen("https://randomuser.me/api/?nat=es", timeout=5) as resp:
             data = json.loads(resp.read())
@@ -84,9 +141,8 @@ def _fetch_address_from_api() -> dict:
         }
     except Exception:
         addr = random.choice(SPAIN_ADDRESSES)
-        street = random.choice(STREET_NAMES)
         return {
-            "address1": f"{street} {random.randint(1, 150)}",
+            "address1": f"{random.choice(STREET_NAMES)} {random.randint(1, 150)}",
             "city": addr["city"],
             "zip_code": addr["zip"],
             "province_code": addr["province_code"],
@@ -94,13 +150,14 @@ def _fetch_address_from_api() -> dict:
 
 
 class CustomerGenerator:
-    def __init__(self):
+    def __init__(self, province: str = None):
         self.fake = Faker("es_ES")
+        self.province_code = _resolve_province_code(province) if province else None
 
     def generate(self) -> FakeCustomer:
         first_name = random.choice(FIRST_NAMES_MALE if random.random() < 0.5 else FIRST_NAMES_FEMALE)
         last_name = f"{random.choice(LAST_NAMES)} {random.choice(LAST_NAMES)}"
-        addr = _fetch_address_from_api()
+        addr = _fetch_address_from_api(self.province_code)
         hex_id = uuid.uuid4().hex[:6]
         address2 = None
         if random.random() < 0.4:

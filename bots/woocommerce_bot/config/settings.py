@@ -10,6 +10,7 @@ class BotSettings(BaseSettings):
     store_url: str = "https://woocomerce.mendepru.com/"
     store_email: Optional[str] = None
     store_password: Optional[str] = None
+    province: Optional[str] = None
     num_orders: int = Field(default=10, ge=1, le=100)
     min_products_per_order: int = Field(default=1, ge=1)
     max_products_per_order: int = Field(default=1, ge=1)
