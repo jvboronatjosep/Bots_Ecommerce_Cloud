@@ -9,6 +9,7 @@ _GLOBAL_ENV = Path(__file__).parent.parent.parent.parent.parent / ".env"
 class BotSettings(BaseSettings):
     # Store
     store_url: str = "https://prestashop8.mendepru.com"
+    province: Optional[str] = None
 
     # Orders
     num_orders: int = Field(default=10, ge=1, le=100)

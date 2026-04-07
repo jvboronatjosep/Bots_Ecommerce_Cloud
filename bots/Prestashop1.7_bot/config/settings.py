@@ -10,6 +10,7 @@ class BotSettings(BaseSettings):
     # Store
     store_url: str = "https://prestashop7.mendepru.com"
     bot_name: str = "BOT PRESTASHOP 1.7"
+    province: Optional[str] = None
 
     # Orders
     num_orders: int = Field(default=10, ge=1, le=100)
