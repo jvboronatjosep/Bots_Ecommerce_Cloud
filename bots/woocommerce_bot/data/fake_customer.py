@@ -1,11 +1,13 @@
+import json
 import random
 import re
 import unicodedata
+import urllib.request
 import uuid
 from dataclasses import dataclass
 from typing import Optional
 from faker import Faker
-from data.addresses import SPAIN_ADDRESSES, STREET_NAMES
+from data.addresses import SPAIN_ADDRESSES, STREET_NAMES, PROVINCE_BY_ZIP_PREFIX
 
 def _sanitize_for_email(text: str) -> str:
     normalized = unicodedata.normalize("NFD", text)
@@ -66,6 +68,31 @@ LAST_NAMES = [
     "Cruz","Calvo","Gallego","Vidal","León","Cabrera","Ibáñez","Herrera",
 ]
 
+def _fetch_address_from_api() -> dict:
+    """Obtiene una dirección española real desde randomuser.me. Fallback al array estático si falla."""
+    try:
+        with urllib.request.urlopen("https://randomuser.me/api/?nat=es", timeout=5) as resp:
+            data = json.loads(resp.read())
+        loc = data["results"][0]["location"]
+        postcode = str(loc["postcode"]).zfill(5)
+        province_code = PROVINCE_BY_ZIP_PREFIX.get(postcode[:2], "MD")
+        return {
+            "address1": f"{loc['street']['name']} {loc['street']['number']}",
+            "city": loc["city"],
+            "zip_code": postcode,
+            "province_code": province_code,
+        }
+    except Exception:
+        addr = random.choice(SPAIN_ADDRESSES)
+        street = random.choice(STREET_NAMES)
+        return {
+            "address1": f"{street} {random.randint(1, 150)}",
+            "city": addr["city"],
+            "zip_code": addr["zip"],
+            "province_code": addr["province_code"],
+        }
+
+
 class CustomerGenerator:
     def __init__(self):
         self.fake = Faker("es_ES")
@@ -73,9 +100,7 @@ class CustomerGenerator:
     def generate(self) -> FakeCustomer:
         first_name = random.choice(FIRST_NAMES_MALE if random.random() < 0.5 else FIRST_NAMES_FEMALE)
         last_name = f"{random.choice(LAST_NAMES)} {random.choice(LAST_NAMES)}"
-        addr = random.choice(SPAIN_ADDRESSES)
-        street_number = random.randint(1, 150)
-        street = random.choice(STREET_NAMES)
+        addr = _fetch_address_from_api()
         hex_id = uuid.uuid4().hex[:6]
         address2 = None
         if random.random() < 0.4:
@@ -87,11 +112,11 @@ class CustomerGenerator:
             first_name=first_name,
             last_name=last_name,
             phone=f"+346{random.randint(10000000, 99999999)}",
-            address1=f"{street} {street_number}",
+            address1=addr["address1"],
             address2=address2,
             city=addr["city"],
             province_code=addr["province_code"],
-            zip_code=addr["zip"],
+            zip_code=addr["zip_code"],
             country="Spain",
             country_code="ES",
             dni=_generate_dni(),
