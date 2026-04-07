@@ -120,11 +120,14 @@ def auto_run_all():
 @app.route('/api/run', methods=['POST'])
 def start_run():
     data = request.json
+    extra_params = data.get('extra_params', {})
+    if data.get('province'):
+        extra_params['province'] = data['province']
     run_id, error = execute_bot_logic(
-        data.get('bot_id'), 
-        orders=data.get('orders', 10), 
+        data.get('bot_id'),
+        orders=data.get('orders', 10),
         headless=data.get('headless', False),
-        extra_params=data.get('extra_params', {})
+        extra_params=extra_params
     )
     if error: return jsonify({'error': error}), 400
     return jsonify({'run_id': run_id, 'status': 'started'})
