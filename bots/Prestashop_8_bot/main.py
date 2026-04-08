@@ -44,6 +44,10 @@ async def process_single_order(
     start_time = time.time()
     customer = customer_gen.generate()
     console.print(f"[bold white][LOG][/bold white] Cliente: [cyan]{customer.first_name} {customer.last_name}[/cyan] | [dim]{customer.email}[/dim]")
+    console.print(
+        f"[bold white][LOG][/bold white] Direccion origen={customer.fuente} | "
+        f"{customer.address1} | {customer.zip_code} {customer.city} | prov={customer.province_code}"
+    )
 
     context, page = await browser_mgr.new_context()
     result = OrderResult(order_index=order_index, success=False, customer_email=customer.email)

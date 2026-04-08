@@ -47,6 +47,10 @@ async def process_single_order(
 
     log_order_running(order_index, total)
     log_info(f"Cliente: [cyan]{customer.first_name} {customer.last_name}[/cyan] | [dim]{customer.email}[/dim]")
+    log_info(
+        f"Direccion origen={customer.fuente} | {customer.address1} | "
+        f"{customer.zip_code} {customer.city} | prov={customer.province_code}"
+    )
 
     context, page = await browser_mgr.new_context()
     result = OrderResult(order_index=order_index, success=False, customer_email=customer.email)
