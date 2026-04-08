@@ -12,17 +12,16 @@ from typing import Optional
 from faker import Faker
 
 from data.addresses import (
-    SPAIN_ADDRESSES, STREET_NAMES,
+    SPAIN_ADDRESSES,
     PROVINCE_BY_ZIP_PREFIX, PROVINCE_PREFIXES, PROVINCE_NAME_TO_CODE,
 )
 
-_SMALL_TOWN_STREETS = [
-    "Calle Mayor", "Calle Real", "Calle Nueva", "Calle del Sol",
-    "Calle de la Iglesia", "Calle de la Fuente", "Calle del Río",
-    "Plaza Mayor", "Plaza de la Iglesia", "Calle Larga",
-    "Camino de la Sierra", "Calle del Campo", "Calle Alta", "Calle Baja",
-]
-_CITY_STREETS = STREET_NAMES
+
+class CatastroUnavailableError(Exception):
+    """
+    El servicio OVCCatastro no devolvió datos verificados.
+    No se generará una dirección inventada. La order debe reintentarse.
+    """
 
 # ── Catastro ──────────────────────────────────────────────────────────────────
 
@@ -132,16 +131,6 @@ def _catastro_numeros(province_name: str, city: str,
     _number_cache[key] = result
     return result
 
-
-def _is_large_city(cp: str) -> bool:
-    suffix = int(cp[2:]) if len(cp) == 5 and cp[2:].isdigit() else 999
-    return suffix <= 99
-
-
-def _fallback_street(cp: str) -> tuple[str, int]:
-    if _is_large_city(cp):
-        return random.choice(_CITY_STREETS), random.randint(1, 250)
-    return random.choice(_SMALL_TOWN_STREETS), random.randint(1, 15)
 
 
 def _fetch_address_from_catastro(province_code: str, city: str, cp: str,
@@ -255,10 +244,16 @@ def _resolve_province_code(province: str) -> str:
 
 
 def _fetch_address_for_province(province_code: str) -> dict:
+    """
+    Modo Paranoico: solo devuelve direcciones confirmadas por el Catastro.
+    Intenta hasta 15 CPs distintos. Último recurso: capital de provincia.
+    Si todo falla → CatastroUnavailableError (nunca inventa una dirección).
+    """
+    static_match = next((a for a in SPAIN_ADDRESSES if a["province_code"] == province_code), None)
+    state_id = static_match["state_id"] if static_match else "0"
     prefix = PROVINCE_PREFIXES.get(province_code)
-    static_match = next((a for a in SPAIN_ADDRESSES if a["province_code"] == province_code), SPAIN_ADDRESSES[0])
     if prefix:
-        for _ in range(5):
+        for _ in range(15):
             cp = prefix + str(random.randint(1, 999)).zfill(3)
             try:
                 url = f"https://api.zippopotam.us/es/{cp}"
@@ -268,36 +263,35 @@ def _fetch_address_for_province(province_code: str) -> dict:
                 if not places:
                     continue
                 city = places[0]["place name"]
-                addr = _fetch_address_from_catastro(
-                    province_code, city, cp, state_id=static_match["state_id"]
-                )
+                addr = _fetch_address_from_catastro(province_code, city, cp, state_id=state_id)
                 if addr:
                     return addr
-                street, number = _fallback_street(cp)
-                return {
-                    "address1":     f"{street} {number}",
-                    "city":         city,
-                    "zip_code":     cp,
-                    "province_code": province_code,
-                    "state_id":     static_match["state_id"],
-                    "fuente":       "FALLBACK",
-                }
             except Exception:
                 continue
-    street, number = _fallback_street(static_match["zip"])
-    return {
-        "address1":     f"{street} {number}",
-        "city":         static_match["city"],
-        "zip_code":     static_match["zip"],
-        "province_code": static_match["province_code"],
-        "state_id":     static_match["state_id"],
-        "fuente":       "FALLBACK",
-    }
+
+    # Último recurso: capital de provincia conocida
+    if static_match:
+        addr = _fetch_address_from_catastro(
+            province_code, static_match["city"], static_match["zip"], state_id=state_id
+        )
+        if addr:
+            return addr
+
+    raise CatastroUnavailableError(
+        f"Catastro no devolvió datos verificados para provincia={province_code}. "
+        "La order debe reintentarse cuando el servicio esté disponible."
+    )
 
 
 def _fetch_address_from_api(province_code: str = None) -> dict:
+    """
+    Modo Paranoico: solo devuelve direcciones confirmadas por el Catastro.
+    Intenta con randomuser.me primero; si falla, prueba 15 CPs aleatorios.
+    Si todo falla → CatastroUnavailableError (nunca inventa una dirección).
+    """
     if province_code:
         return _fetch_address_for_province(province_code)
+
     try:
         with urllib.request.urlopen("https://randomuser.me/api/?nat=es", timeout=5) as resp:
             data = json.loads(resp.read())
@@ -311,27 +305,16 @@ def _fetch_address_from_api(province_code: str = None) -> dict:
         addr = _fetch_address_from_catastro(prov_code, city, postcode, state_id=static_match["state_id"])
         if addr:
             return addr
-        _, max_num = _fallback_street(postcode)
-        ru_num = int(loc["street"]["number"]) if str(loc["street"]["number"]).isdigit() else max_num
-        return {
-            "address1":     f"{loc['street']['name']} {min(ru_num, max_num)}",
-            "city":         city,
-            "zip_code":     postcode,
-            "province_code": prov_code,
-            "state_id":     static_match["state_id"],
-            "fuente":       "RandomUser",
-        }
+        # randomuser dio ciudad pero Catastro no respondió → probar otros CPs
+        return _fetch_address_for_province(prov_code)
+    except CatastroUnavailableError:
+        raise
     except Exception:
-        addr = random.choice(SPAIN_ADDRESSES)
-        street, number = _fallback_street(addr["zip"])
-        return {
-            "address1":     f"{street} {number}",
-            "city":         addr["city"],
-            "zip_code":     addr["zip"],
-            "province_code": addr["province_code"],
-            "state_id":     addr["state_id"],
-            "fuente":       "FALLBACK",
-        }
+        pass
+
+    # randomuser.me no disponible → intentar con una provincia aleatoria
+    prov_code = random.choice(list(PROVINCE_PREFIXES.keys()))
+    return _fetch_address_for_province(prov_code)
 
 
 class CustomerGenerator:
