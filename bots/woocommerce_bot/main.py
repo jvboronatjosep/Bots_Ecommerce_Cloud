@@ -37,6 +37,14 @@ async def process_single_order(
     customer = customer_gen.generate()
     logger.order_start(order_index, total_orders)
     logger.cliente(f"{customer.first_name} {customer.last_name}", customer.email)
+    logger.info(
+        "Direccion origen=%s | %s | %s %s | prov=%s",
+        customer.fuente,
+        customer.address1,
+        customer.zip_code,
+        customer.city,
+        customer.province_code,
+    )
     context, page = await browser_mgr.new_context()
     result = OrderResult(order_index=order_index, success=False, customer_email=customer.email)
     try:

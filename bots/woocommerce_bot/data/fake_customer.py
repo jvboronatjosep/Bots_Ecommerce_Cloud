@@ -68,10 +68,17 @@ PROVINCE_CODE_TO_NAME = {
 _street_cache: dict[str, list[dict]] = {}   # "PROVINCIA:CIUDAD" → [{tipo_via, nombre_via}]
 _number_cache: dict[str, list[str]] = {}    # "PROVINCIA:CIUDAD:TV:NV" → ["1","3","5",...]
 _real_address_cache_by_province: dict[str, list[dict]] = {}
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 _DEFAULT_REAL_ADDRESS_CSVS = (
+    str(_PROJECT_ROOT / "services_rows (23).csv"),
+    str(_PROJECT_ROOT / "services_rows (24).csv"),
     "/Users/josepboronat/Downloads/services_rows (23).csv",
     "/Users/josepboronat/Downloads/services_rows (24).csv",
+    str(Path.home() / "Downloads" / "services_rows (23).csv"),
+    str(Path.home() / "Downloads" / "services_rows (24).csv"),
+    str(Path.cwd() / "services_rows (23).csv"),
+    str(Path.cwd() / "services_rows (24).csv"),
 )
 
 
@@ -120,6 +127,8 @@ def _load_real_addresses_from_csvs() -> dict[str, list[dict]]:
     csv_paths = [
         Path(p.strip()) for p in raw_paths.split(",") if p.strip()
     ] if raw_paths else [Path(p) for p in _DEFAULT_REAL_ADDRESS_CSVS]
+    # Desduplica rutas para evitar lecturas repetidas
+    csv_paths = list(dict.fromkeys(csv_paths))
 
     rows_by_province: dict[str, list[dict]] = {}
     seen: set[tuple[str, str, str]] = set()
