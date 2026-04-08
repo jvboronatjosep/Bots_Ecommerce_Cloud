@@ -433,6 +433,10 @@ def _fetch_address_from_api(province_code: str = None) -> dict:
         loc = data["results"][0]["location"]
         postcode = str(loc["postcode"]).zfill(5)
         prov_code = PROVINCE_BY_ZIP_PREFIX.get(postcode[:2], "MD")
+        # Para ejecuciones aleatorias/diarias: si cae en Madrid o Barcelona,
+        # fuerza el flujo de provincia para usar direcciones reales del CSV.
+        if prov_code in {"MD", "B"}:
+            return _fetch_address_for_province(prov_code)
         city = loc["city"]
 
         # Intenta primero con el Catastro
