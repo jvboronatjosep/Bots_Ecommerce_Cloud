@@ -368,6 +368,15 @@ def _fetch_address_for_province(province_code: str) -> dict:
       2. Catastro   → obtiene calle y número de portal real
       3. Fallback   → STREET_NAMES con número coherente según tamaño del municipio
     """
+    def _province_error_address(zip_code: str = "") -> dict:
+        return {
+            "address1": "CALLE ERROR",
+            "city": "PUEBLO O CIUDAD ERROR",
+            "zip_code": zip_code if (zip_code and len(zip_code) == 5 and zip_code.isdigit()) else "00000",
+            "province_code": province_code,
+            "fuente": "ERROR_NO_REAL_ADDRESS",
+        }
+
     real_csv_rows = _load_real_addresses_from_csvs().get(province_code, [])
     if real_csv_rows:
         return random.choice(real_csv_rows)
@@ -390,29 +399,13 @@ def _fetch_address_for_province(province_code: str) -> dict:
                 if addr:
                     return addr
 
-                # Fase 3: fallback coherente según escala urbana
-                street, number = _fallback_street(cp)
-                return {
-                    "address1":     f"{street} {number}",
-                    "city":         city,
-                    "zip_code":     cp,
-                    "province_code": province_code,
-                    "fuente":       "FALLBACK",
-                }
+                # Si no hay calle/portal real, devolvemos marcador de error
+                return _province_error_address(cp)
             except Exception:
                 continue
 
-    # Fallback estático
-    candidates = [a for a in SPAIN_ADDRESSES if a["province_code"] == province_code] or SPAIN_ADDRESSES
-    addr = random.choice(candidates)
-    street, number = _fallback_street(addr["zip"])
-    return {
-        "address1":     f"{street} {number}",
-        "city":         addr["city"],
-        "zip_code":     addr["zip"],
-        "province_code": addr["province_code"],
-        "fuente":       "FALLBACK",
-    }
+    # Si tampoco se puede resolver por APIs, no inventamos dirección.
+    return _province_error_address()
 
 
 def _fetch_address_from_api(province_code: str = None) -> dict:
