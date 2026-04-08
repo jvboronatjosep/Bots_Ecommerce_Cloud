@@ -109,7 +109,7 @@ def _catastro_callejero(province_name: str, city: str) -> list[dict]:
 
 
 def _catastro_numeros(province_name: str, city: str,
-                      tipo_via: str, nombre_via: str) -> list[str]:
+                      tipo_via: str, nombre_via: str) -> dict:
     key = f"{province_name.upper()}:{city.upper()}:{tipo_via}:{nombre_via}"
     if key in _number_cache:
         return _number_cache[key]
@@ -119,14 +119,18 @@ def _catastro_numeros(province_name: str, city: str,
         "TipoVia":   tipo_via.upper(),
         "NombreVia": nombre_via.upper(),
     })
-    numbers: list[str] = []
+    result: dict = {"numbers": [], "cp": None}
     if root is not None:
-        for pnp in _find_all(root, "pnp"):
-            val = (pnp.text or "").strip()
-            if val.isdigit():
-                numbers.append(val)
-    _number_cache[key] = numbers
-    return numbers
+        for have in _find_all(root, "have"):
+            street_cp = _find_text(have, "cp")
+            if street_cp:
+                result["cp"] = street_cp
+            for pnp in _find_all(have, "pnp"):
+                val = (pnp.text or "").strip()
+                if val.isdigit():
+                    result["numbers"].append(val)
+    _number_cache[key] = result
+    return result
 
 
 def _is_large_city(cp: str) -> bool:
@@ -148,24 +152,36 @@ def _fetch_address_from_catastro(province_code: str, city: str, cp: str,
     streets = _catastro_callejero(province_name, city)
     if not streets:
         return None
-    candidates = random.sample(streets, min(5, len(streets)))
-    for street in candidates:
-        numbers = _catastro_numeros(
+
+    sample = random.sample(streets, min(15, len(streets)))
+    cp_match: list[tuple] = []
+    cp_other: list[tuple] = []
+    for street in sample:
+        data = _catastro_numeros(
             province_name, city, street["tipo_via"], street["nombre_via"]
         )
-        if numbers:
-            numero = random.choice(numbers)
-            tipo_full = TIPO_VIA_TO_FULL.get(street["tipo_via"], "Calle")
-            nombre = street["nombre_via"].title()
-            return {
-                "address1":     f"{tipo_full} {nombre} {numero}",
-                "city":         city,
-                "zip_code":     cp,
-                "province_code": province_code,
-                "state_id":     state_id,
-                "fuente":       "OVCCatastro",
-            }
-    return None
+        if not data["numbers"]:
+            continue
+        if data["cp"] == cp:
+            cp_match.append((street, data["numbers"]))
+        else:
+            cp_other.append((street, data["numbers"]))
+
+    pool = cp_match if cp_match else cp_other
+    if not pool:
+        return None
+    street, numbers = random.choice(pool)
+    numero = random.choice(numbers)
+    tipo_full = TIPO_VIA_TO_FULL.get(street["tipo_via"], "Calle")
+    nombre = street["nombre_via"].title()
+    return {
+        "address1":     f"{tipo_full} {nombre} {numero}",
+        "city":         city,
+        "zip_code":     cp,
+        "province_code": province_code,
+        "state_id":     state_id,
+        "fuente":       "OVCCatastro",
+    }
 
 
 def _sanitize_for_email(text: str) -> str:

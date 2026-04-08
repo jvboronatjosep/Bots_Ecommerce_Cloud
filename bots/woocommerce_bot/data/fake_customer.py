@@ -119,8 +119,12 @@ def _catastro_callejero(province_name: str, city: str) -> list[dict]:
 
 
 def _catastro_numeros(province_name: str, city: str,
-                      tipo_via: str, nombre_via: str) -> list[str]:
-    """Devuelve los números de portal reales de una vía (con caché)."""
+                      tipo_via: str, nombre_via: str) -> dict:
+    """
+    Consulta los portales reales de una vía en el Catastro.
+    Devuelve {"numbers": [...], "cp": "08015"} con caché.
+    El campo "cp" es el CP oficial de esa vía según el Catastro.
+    """
     key = f"{province_name.upper()}:{city.upper()}:{tipo_via}:{nombre_via}"
     if key in _number_cache:
         return _number_cache[key]
@@ -132,15 +136,20 @@ def _catastro_numeros(province_name: str, city: str,
         "NombreVia": nombre_via.upper(),
     })
 
-    numbers: list[str] = []
+    result: dict = {"numbers": [], "cp": None}
     if root is not None:
-        for pnp in _find_all(root, "pnp"):
-            val = (pnp.text or "").strip()
-            if val.isdigit():
-                numbers.append(val)
+        for have in _find_all(root, "have"):
+            # El CP de la vía está en <cp> dentro de <have>
+            street_cp = _find_text(have, "cp")
+            if street_cp:
+                result["cp"] = street_cp
+            for pnp in _find_all(have, "pnp"):
+                val = (pnp.text or "").strip()
+                if val.isdigit():
+                    result["numbers"].append(val)
 
-    _number_cache[key] = numbers
-    return numbers
+    _number_cache[key] = result
+    return result
 
 
 def _is_large_city(cp: str) -> bool:
@@ -161,7 +170,13 @@ def _fallback_street(cp: str) -> tuple[str, int]:
 
 
 def _fetch_address_from_catastro(province_code: str, city: str, cp: str) -> Optional[dict]:
-    """Intenta construir una dirección real consultando el Catastro."""
+    """
+    Construye una dirección real consultando el Catastro.
+
+    Prioridad:
+      1. Calles cuyo <cp> devuelto por ConsultaNumero coincide con el CP objetivo.
+      2. Calles con portales pero de otro sector (si el paso 1 falla).
+    """
     province_name = PROVINCE_CODE_TO_NAME.get(province_code)
     if not province_name:
         return None
@@ -170,24 +185,38 @@ def _fetch_address_from_catastro(province_code: str, city: str, cp: str) -> Opti
     if not streets:
         return None
 
-    # Prueba hasta 5 vías aleatorias hasta encontrar una con números
-    candidates = random.sample(streets, min(5, len(streets)))
-    for street in candidates:
-        numbers = _catastro_numeros(
+    # Consulta hasta 15 vías aleatorias y clasifica por coincidencia de CP
+    sample = random.sample(streets, min(15, len(streets)))
+    cp_match: list[tuple] = []    # (street, numbers) con CP exacto
+    cp_other: list[tuple] = []    # (street, numbers) con CP distinto o sin CP
+
+    for street in sample:
+        data = _catastro_numeros(
             province_name, city, street["tipo_via"], street["nombre_via"]
         )
-        if numbers:
-            numero = random.choice(numbers)
-            tipo_full = TIPO_VIA_TO_FULL.get(street["tipo_via"], "Calle")
-            nombre = street["nombre_via"].title()
-            return {
-                "address1":     f"{tipo_full} {nombre} {numero}",
-                "city":         city,
-                "zip_code":     cp,
-                "province_code": province_code,
-                "fuente":       "OVCCatastro",
-            }
-    return None
+        if not data["numbers"]:
+            continue
+        if data["cp"] == cp:
+            cp_match.append((street, data["numbers"]))
+        else:
+            cp_other.append((street, data["numbers"]))
+
+    # Elige de las calles que sí pertenecen al CP; si no hay, usa el resto
+    pool = cp_match if cp_match else cp_other
+    if not pool:
+        return None
+
+    street, numbers = random.choice(pool)
+    numero = random.choice(numbers)
+    tipo_full = TIPO_VIA_TO_FULL.get(street["tipo_via"], "Calle")
+    nombre = street["nombre_via"].title()
+    return {
+        "address1":     f"{tipo_full} {nombre} {numero}",
+        "city":         city,
+        "zip_code":     cp,
+        "province_code": province_code,
+        "fuente":       "OVCCatastro",
+    }
 
 
 # ── Helpers de email / DNI ────────────────────────────────────────────────────
