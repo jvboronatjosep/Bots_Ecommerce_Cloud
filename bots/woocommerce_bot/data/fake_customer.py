@@ -1,4 +1,6 @@
+import csv
 import json
+import os
 import random
 import re
 import unicodedata
@@ -7,6 +9,7 @@ import urllib.request
 import uuid
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 from faker import Faker
@@ -64,6 +67,12 @@ PROVINCE_CODE_TO_NAME = {
 # Cache en memoria: evita repetir llamadas al Catastro para la misma ciudad
 _street_cache: dict[str, list[dict]] = {}   # "PROVINCIA:CIUDAD" → [{tipo_via, nombre_via}]
 _number_cache: dict[str, list[str]] = {}    # "PROVINCIA:CIUDAD:TV:NV" → ["1","3","5",...]
+_real_address_cache_by_province: dict[str, list[dict]] = {}
+
+_DEFAULT_REAL_ADDRESS_CSVS = (
+    "/Users/josepboronat/Downloads/services_rows (23).csv",
+    "/Users/josepboronat/Downloads/services_rows (24).csv",
+)
 
 
 def _catastro_tag(tag: str) -> str:
@@ -93,6 +102,62 @@ def _find_text(elem: ET.Element, tag: str) -> str:
     if child is None:
         child = elem.find(tag)
     return (child.text or "").strip() if child is not None else ""
+
+
+def _clean_csv_value(value: Optional[str]) -> str:
+    return (value or "").strip()
+
+
+def _load_real_addresses_from_csvs() -> dict[str, list[dict]]:
+    """
+    Carga direcciones reales desde CSVs operativos y las indexa por provincia.
+    Se usa sobre todo para el modo con --province.
+    """
+    if _real_address_cache_by_province:
+        return _real_address_cache_by_province
+
+    raw_paths = os.getenv("WOO_REAL_ADDRESS_CSVS")
+    csv_paths = [
+        Path(p.strip()) for p in raw_paths.split(",") if p.strip()
+    ] if raw_paths else [Path(p) for p in _DEFAULT_REAL_ADDRESS_CSVS]
+
+    rows_by_province: dict[str, list[dict]] = {}
+    seen: set[tuple[str, str, str]] = set()
+
+    for csv_path in csv_paths:
+        if not csv_path.exists():
+            continue
+        try:
+            with csv_path.open("r", encoding="utf-8-sig", newline="") as fh:
+                reader = csv.DictReader(fh)
+                for row in reader:
+                    address1 = _clean_csv_value(row.get("service_address"))
+                    city = _clean_csv_value(row.get("service_city"))
+                    zip_code = _clean_csv_value(row.get("service_postal_code")).zfill(5)
+                    country = _clean_csv_value(row.get("service_country")).lower()
+                    if not address1 or not city or len(zip_code) != 5 or not zip_code.isdigit():
+                        continue
+                    if country and country not in {"es", "esp", "spain", "espana", "españa"}:
+                        continue
+                    province_code = PROVINCE_BY_ZIP_PREFIX.get(zip_code[:2])
+                    if not province_code:
+                        continue
+                    key = (address1.lower(), city.lower(), zip_code)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    rows_by_province.setdefault(province_code, []).append({
+                        "address1": address1.title(),
+                        "city": city.title(),
+                        "zip_code": zip_code,
+                        "province_code": province_code,
+                        "fuente": "CSV_REAL",
+                    })
+        except Exception:
+            continue
+
+    _real_address_cache_by_province.update(rows_by_province)
+    return _real_address_cache_by_province
 
 
 def _catastro_callejero(province_name: str, city: str) -> list[dict]:
@@ -303,6 +368,10 @@ def _fetch_address_for_province(province_code: str) -> dict:
       2. Catastro   → obtiene calle y número de portal real
       3. Fallback   → STREET_NAMES con número coherente según tamaño del municipio
     """
+    real_csv_rows = _load_real_addresses_from_csvs().get(province_code, [])
+    if real_csv_rows:
+        return random.choice(real_csv_rows)
+
     prefix = PROVINCE_PREFIXES.get(province_code)
     if prefix:
         for _ in range(5):
