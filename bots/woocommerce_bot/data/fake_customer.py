@@ -435,10 +435,6 @@ def _fetch_address_from_api(province_code: str = None) -> dict:
     if province_code:
         return _fetch_address_for_province(province_code)
 
-    # Modo prueba sin provincia: reparte entre Madrid y Barcelona para que
-    # ambos salgan en pedidos aleatorios/diarios.
-    return _fetch_address_for_province(random.choice(["MD", "B"]))
-
     try:
         with urllib.request.urlopen("https://randomuser.me/api/?nat=es", timeout=5) as resp:
             data = json.loads(resp.read())
