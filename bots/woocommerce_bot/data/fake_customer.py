@@ -16,6 +16,17 @@ from data.addresses import (
     PROVINCE_BY_ZIP_PREFIX, PROVINCE_PREFIXES, PROVINCE_NAME_TO_CODE,
 )
 
+# Calles genéricas para municipios pequeños (sin sesgo hacia Madrid/Barcelona)
+_SMALL_TOWN_STREETS = [
+    "Calle Mayor", "Calle Real", "Calle Nueva", "Calle del Sol",
+    "Calle de la Iglesia", "Calle de la Fuente", "Calle del Río",
+    "Plaza Mayor", "Plaza de la Iglesia", "Calle Larga",
+    "Camino de la Sierra", "Calle del Campo", "Calle Alta", "Calle Baja",
+]
+
+# Calles para ciudades grandes (CP capital, sufijo ≤ 099)
+_CITY_STREETS = STREET_NAMES
+
 # ── Catastro ──────────────────────────────────────────────────────────────────
 
 _CATASTRO_BASE = (
@@ -132,10 +143,21 @@ def _catastro_numeros(province_name: str, city: str,
     return numbers
 
 
-def _max_street_number(cp: str) -> int:
-    """Número máximo coherente según el tamaño del municipio inferido del CP."""
+def _is_large_city(cp: str) -> bool:
+    """CP con sufijo ≤ 099 corresponde a capital de provincia o ciudad grande."""
     suffix = int(cp[2:]) if len(cp) == 5 and cp[2:].isdigit() else 999
-    return 250 if suffix <= 99 else 50
+    return suffix <= 99
+
+
+def _fallback_street(cp: str) -> tuple[str, int]:
+    """
+    Devuelve (nombre_calle, número) coherentes con el tamaño del municipio.
+    Pueblo: calles genéricas, números 1-15.
+    Ciudad capital: STREET_NAMES, números 1-250.
+    """
+    if _is_large_city(cp):
+        return random.choice(_CITY_STREETS), random.randint(1, 250)
+    return random.choice(_SMALL_TOWN_STREETS), random.randint(1, 15)
 
 
 def _fetch_address_from_catastro(province_code: str, city: str, cp: str) -> Optional[dict]:
@@ -270,10 +292,10 @@ def _fetch_address_for_province(province_code: str) -> dict:
                 if addr:
                     return addr
 
-                # Fase 3: fallback coherente
-                max_num = _max_street_number(cp)
+                # Fase 3: fallback coherente según escala urbana
+                street, number = _fallback_street(cp)
                 return {
-                    "address1":     f"{random.choice(STREET_NAMES)} {random.randint(1, max_num)}",
+                    "address1":     f"{street} {number}",
                     "city":         city,
                     "zip_code":     cp,
                     "province_code": province_code,
@@ -285,9 +307,9 @@ def _fetch_address_for_province(province_code: str) -> dict:
     # Fallback estático
     candidates = [a for a in SPAIN_ADDRESSES if a["province_code"] == province_code] or SPAIN_ADDRESSES
     addr = random.choice(candidates)
-    max_num = _max_street_number(addr["zip"])
+    street, number = _fallback_street(addr["zip"])
     return {
-        "address1":     f"{random.choice(STREET_NAMES)} {random.randint(1, max_num)}",
+        "address1":     f"{street} {number}",
         "city":         addr["city"],
         "zip_code":     addr["zip"],
         "province_code": addr["province_code"],
@@ -318,12 +340,12 @@ def _fetch_address_from_api(province_code: str = None) -> dict:
         if addr:
             return addr
 
-        # Fallback: usa la calle de randomuser.me (real, pero no validada por Catastro)
-        max_num = _max_street_number(postcode)
-        ru_number = int(loc["street"]["number"]) if str(loc["street"]["number"]).isdigit() else random.randint(1, max_num)
-        ru_number = min(ru_number, max_num)
+        # Fallback: calle de randomuser.me con número capado según escala urbana
+        street_name = loc["street"]["name"]
+        _, max_num = _fallback_street(postcode)  # solo usa el cap numérico
+        ru_number = int(loc["street"]["number"]) if str(loc["street"]["number"]).isdigit() else max_num
         return {
-            "address1":     f"{loc['street']['name']} {ru_number}",
+            "address1":     f"{street_name} {min(ru_number, max_num)}",
             "city":         city,
             "zip_code":     postcode,
             "province_code": prov_code,
@@ -331,9 +353,9 @@ def _fetch_address_from_api(province_code: str = None) -> dict:
         }
     except Exception:
         addr = random.choice(SPAIN_ADDRESSES)
-        max_num = _max_street_number(addr["zip"])
+        street, number = _fallback_street(addr["zip"])
         return {
-            "address1":     f"{random.choice(STREET_NAMES)} {random.randint(1, max_num)}",
+            "address1":     f"{street} {number}",
             "city":         addr["city"],
             "zip_code":     addr["zip"],
             "province_code": addr["province_code"],
