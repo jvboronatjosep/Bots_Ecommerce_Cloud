@@ -2,42 +2,187 @@ import json
 import random
 import re
 import unicodedata
+import urllib.parse
 import urllib.request
 import uuid
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Optional
+
 from faker import Faker
+
 from data.addresses import (
     SPAIN_ADDRESSES, STREET_NAMES,
     PROVINCE_BY_ZIP_PREFIX, PROVINCE_PREFIXES, PROVINCE_NAME_TO_CODE,
 )
 
+# ── Catastro ──────────────────────────────────────────────────────────────────
+
+_CATASTRO_BASE = (
+    "https://ovc.catastro.meh.es/ovcservweb/"
+    "ovcswlocalizacionrc/ovccallejero.asmx"
+)
+_CATASTRO_NS = "http://www.catastro.meh.es/"
+
+TIPO_VIA_TO_FULL = {
+    "CL": "Calle",    "AV": "Avenida",  "PS": "Paseo",      "CM": "Camino",
+    "PL": "Plaza",    "TR": "Travesía", "RD": "Ronda",      "GV": "Gran Vía",
+    "CR": "Carretera","GL": "Glorieta", "AL": "Alameda",    "PZ": "Plazuela",
+    "CJ": "Callejón", "BO": "Barrio",   "LG": "Lugar",      "VL": "Vial",
+    "BV": "Bulevar",  "SN": "Senda",    "UR": "Urbanización",
+}
+
+PROVINCE_CODE_TO_NAME = {
+    "VI": "Álava",     "AB": "Albacete",  "A": "Alicante",   "AL": "Almería",
+    "AV": "Ávila",     "BA": "Badajoz",   "PM": "Baleares",  "B": "Barcelona",
+    "BU": "Burgos",    "CC": "Cáceres",   "CA": "Cádiz",     "CS": "Castellón",
+    "CR": "Ciudad Real","CO": "Córdoba",  "C": "La Coruña",  "CU": "Cuenca",
+    "GI": "Gerona",    "GR": "Granada",   "GU": "Guadalajara","SS": "Guipúzcoa",
+    "H": "Huelva",     "HU": "Huesca",    "J": "Jaén",       "LE": "León",
+    "L": "Lérida",     "LO": "La Rioja",  "LU": "Lugo",
+    "M": "Madrid",     "MD": "Madrid",
+    "MA": "Málaga",    "MU": "Murcia",    "NA": "Navarra",
+    "OR": "Orense",    "O": "Asturias",   "P": "Palencia",   "GC": "Las Palmas",
+    "PO": "Pontevedra","SA": "Salamanca", "TF": "Santa Cruz de Tenerife",
+    "S": "Cantabria",  "SG": "Segovia",   "SE": "Sevilla",   "SO": "Soria",
+    "T": "Tarragona",  "TE": "Teruel",    "TO": "Toledo",    "V": "Valencia",
+    "VA": "Valladolid","BI": "Vizcaya",   "ZA": "Zamora",    "Z": "Zaragoza",
+    "CE": "Ceuta",     "ML": "Melilla",
+}
+
+# Cache en memoria: evita repetir llamadas al Catastro para la misma ciudad
+_street_cache: dict[str, list[dict]] = {}   # "PROVINCIA:CIUDAD" → [{tipo_via, nombre_via}]
+_number_cache: dict[str, list[str]] = {}    # "PROVINCIA:CIUDAD:TV:NV" → ["1","3","5",...]
+
+
+def _catastro_tag(tag: str) -> str:
+    return f"{{{_CATASTRO_NS}}}{tag}"
+
+
+def _catastro_get(method: str, params: dict) -> Optional[ET.Element]:
+    try:
+        qs = urllib.parse.urlencode(params)
+        url = f"{_CATASTRO_BASE}/{method}?{qs}"
+        req = urllib.request.Request(url, headers={"Accept": "text/xml"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return ET.fromstring(resp.read())
+    except Exception:
+        return None
+
+
+def _find_all(root: ET.Element, tag: str) -> list[ET.Element]:
+    """Busca elementos por tag con o sin namespace del Catastro."""
+    result = list(root.iter(_catastro_tag(tag)))
+    return result if result else list(root.iter(tag))
+
+
+def _find_text(elem: ET.Element, tag: str) -> str:
+    """Devuelve el texto de un sub-elemento, con o sin namespace."""
+    child = elem.find(_catastro_tag(tag))
+    if child is None:
+        child = elem.find(tag)
+    return (child.text or "").strip() if child is not None else ""
+
+
+def _catastro_callejero(province_name: str, city: str) -> list[dict]:
+    """Devuelve la lista de vías de un municipio vía Catastro (con caché)."""
+    key = f"{province_name.upper()}:{city.upper()}"
+    if key in _street_cache:
+        return _street_cache[key]
+
+    root = _catastro_get("ConsultaVia", {
+        "Provincia": province_name.upper(),
+        "Municipio": city.upper(),
+    })
+
+    streets: list[dict] = []
+    if root is not None:
+        for have in _find_all(root, "have"):
+            tv = _find_text(have, "tv")
+            nv = _find_text(have, "nv")
+            if tv and nv:
+                streets.append({"tipo_via": tv, "nombre_via": nv})
+
+    _street_cache[key] = streets
+    return streets
+
+
+def _catastro_numeros(province_name: str, city: str,
+                      tipo_via: str, nombre_via: str) -> list[str]:
+    """Devuelve los números de portal reales de una vía (con caché)."""
+    key = f"{province_name.upper()}:{city.upper()}:{tipo_via}:{nombre_via}"
+    if key in _number_cache:
+        return _number_cache[key]
+
+    root = _catastro_get("ConsultaNumero", {
+        "Provincia": province_name.upper(),
+        "Municipio": city.upper(),
+        "TipoVia":   tipo_via.upper(),
+        "NombreVia": nombre_via.upper(),
+    })
+
+    numbers: list[str] = []
+    if root is not None:
+        for pnp in _find_all(root, "pnp"):
+            val = (pnp.text or "").strip()
+            if val.isdigit():
+                numbers.append(val)
+
+    _number_cache[key] = numbers
+    return numbers
+
+
+def _max_street_number(cp: str) -> int:
+    """Número máximo coherente según el tamaño del municipio inferido del CP."""
+    suffix = int(cp[2:]) if len(cp) == 5 and cp[2:].isdigit() else 999
+    return 250 if suffix <= 99 else 50
+
+
+def _fetch_address_from_catastro(province_code: str, city: str, cp: str) -> Optional[dict]:
+    """Intenta construir una dirección real consultando el Catastro."""
+    province_name = PROVINCE_CODE_TO_NAME.get(province_code)
+    if not province_name:
+        return None
+
+    streets = _catastro_callejero(province_name, city)
+    if not streets:
+        return None
+
+    # Prueba hasta 5 vías aleatorias hasta encontrar una con números
+    candidates = random.sample(streets, min(5, len(streets)))
+    for street in candidates:
+        numbers = _catastro_numeros(
+            province_name, city, street["tipo_via"], street["nombre_via"]
+        )
+        if numbers:
+            numero = random.choice(numbers)
+            tipo_full = TIPO_VIA_TO_FULL.get(street["tipo_via"], "Calle")
+            nombre = street["nombre_via"].title()
+            return {
+                "address1":     f"{tipo_full} {nombre} {numero}",
+                "city":         city,
+                "zip_code":     cp,
+                "province_code": province_code,
+                "fuente":       "OVCCatastro",
+            }
+    return None
+
+
+# ── Helpers de email / DNI ────────────────────────────────────────────────────
+
 def _sanitize_for_email(text: str) -> str:
     normalized = unicodedata.normalize("NFD", text)
     ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
-    ascii_text = re.sub(r"[^a-z0-9]", "", ascii_text.lower())
-    return ascii_text or "user"
+    return re.sub(r"[^a-z0-9]", "", ascii_text.lower()) or "user"
+
 
 def _generate_dni() -> str:
     letters = "TRWAGMYFPDXBNJZSQVHLCKE"
     number = random.randint(10000000, 99999999)
-    letter = letters[number % 23]
-    return f"{number}{letter}"
+    return f"{number}{letters[number % 23]}"
 
-@dataclass
-class FakeCustomer:
-    email: str
-    first_name: str
-    last_name: str
-    phone: str
-    address1: str
-    address2: Optional[str]
-    city: str
-    province_code: str
-    zip_code: str
-    country: str
-    country_code: str
-    dni: str
+
+# ── Nombres ───────────────────────────────────────────────────────────────────
 
 FIRST_NAMES_MALE = [
     "Alejandro","Alfonso","Álvaro","Andrés","Antonio","Arturo","Borja",
@@ -71,31 +216,44 @@ LAST_NAMES = [
     "Cruz","Calvo","Gallego","Vidal","León","Cabrera","Ibáñez","Herrera",
 ]
 
+
+# ── Dataclass ─────────────────────────────────────────────────────────────────
+
+@dataclass
+class FakeCustomer:
+    email: str
+    first_name: str
+    last_name: str
+    phone: str
+    address1: str
+    address2: Optional[str]
+    city: str
+    province_code: str
+    zip_code: str
+    country: str
+    country_code: str
+    dni: str
+    fuente: str = "FALLBACK"
+
+
+# ── Generación de direcciones ─────────────────────────────────────────────────
+
 def _resolve_province_code(province: str) -> str:
-    """Convierte nombre de provincia o código en código normalizado (ej: 'Valencia' → 'V')."""
     normalized = province.strip().lower()
-    # Si ya es un código válido (ej: "V", "MD", "B")
     if province.strip().upper() in PROVINCE_PREFIXES:
         return province.strip().upper()
     return PROVINCE_NAME_TO_CODE.get(normalized, province.strip().upper())
 
 
-def _fetch_street_from_randomuser() -> str:
-    """Obtiene solo el nombre de calle desde randomuser.me."""
-    try:
-        with urllib.request.urlopen("https://randomuser.me/api/?nat=es", timeout=5) as resp:
-            data = json.loads(resp.read())
-        loc = data["results"][0]["location"]
-        return f"{loc['street']['name']} {loc['street']['number']}"
-    except Exception:
-        return f"{random.choice(STREET_NAMES)} {random.randint(1, 150)}"
-
-
 def _fetch_address_for_province(province_code: str) -> dict:
-    """Genera una dirección coherente (ciudad + CP) dentro de la provincia especificada."""
+    """
+    Flujo principal con provincia:
+      1. Zippopotam → obtiene ciudad y CP reales de esa provincia
+      2. Catastro   → obtiene calle y número de portal real
+      3. Fallback   → STREET_NAMES con número coherente según tamaño del municipio
+    """
     prefix = PROVINCE_PREFIXES.get(province_code)
     if prefix:
-        # Intentar hasta 5 CPs aleatorios en esa provincia via zippopotam.us
         for _ in range(5):
             cp = prefix + str(random.randint(1, 999)).zfill(3)
             try:
@@ -103,51 +261,87 @@ def _fetch_address_for_province(province_code: str) -> dict:
                 with urllib.request.urlopen(url, timeout=5) as resp:
                     data = json.loads(resp.read())
                 places = data.get("places", [])
-                if places:
-                    city = places[0]["place name"]
-                    street = _fetch_street_from_randomuser()
-                    return {"address1": street, "city": city, "zip_code": cp, "province_code": province_code}
+                if not places:
+                    continue
+                city = places[0]["place name"]
+
+                # Fase 2: Catastro
+                addr = _fetch_address_from_catastro(province_code, city, cp)
+                if addr:
+                    return addr
+
+                # Fase 3: fallback coherente
+                max_num = _max_street_number(cp)
+                return {
+                    "address1":     f"{random.choice(STREET_NAMES)} {random.randint(1, max_num)}",
+                    "city":         city,
+                    "zip_code":     cp,
+                    "province_code": province_code,
+                    "fuente":       "FALLBACK",
+                }
             except Exception:
                 continue
 
-    # Fallback: usar datos estáticos filtrados por provincia
-    province_addrs = [a for a in SPAIN_ADDRESSES if a["province_code"] == province_code]
-    if not province_addrs:
-        province_addrs = SPAIN_ADDRESSES
-    addr = random.choice(province_addrs)
+    # Fallback estático
+    candidates = [a for a in SPAIN_ADDRESSES if a["province_code"] == province_code] or SPAIN_ADDRESSES
+    addr = random.choice(candidates)
+    max_num = _max_street_number(addr["zip"])
     return {
-        "address1": f"{random.choice(STREET_NAMES)} {random.randint(1, 150)}",
-        "city": addr["city"],
-        "zip_code": addr["zip"],
+        "address1":     f"{random.choice(STREET_NAMES)} {random.randint(1, max_num)}",
+        "city":         addr["city"],
+        "zip_code":     addr["zip"],
         "province_code": addr["province_code"],
+        "fuente":       "FALLBACK",
     }
 
 
 def _fetch_address_from_api(province_code: str = None) -> dict:
-    """Obtiene una dirección española real. Si se especifica provincia, los datos son de esa provincia."""
+    """
+    Flujo sin provincia:
+      1. randomuser.me → obtiene ciudad y CP aleatorio español
+      2. Catastro      → obtiene calle y número de portal real
+      3. Fallback      → usa la calle de randomuser.me como último recurso
+    """
     if province_code:
         return _fetch_address_for_province(province_code)
+
     try:
         with urllib.request.urlopen("https://randomuser.me/api/?nat=es", timeout=5) as resp:
             data = json.loads(resp.read())
         loc = data["results"][0]["location"]
         postcode = str(loc["postcode"]).zfill(5)
-        province_code = PROVINCE_BY_ZIP_PREFIX.get(postcode[:2], "MD")
+        prov_code = PROVINCE_BY_ZIP_PREFIX.get(postcode[:2], "MD")
+        city = loc["city"]
+
+        # Intenta primero con el Catastro
+        addr = _fetch_address_from_catastro(prov_code, city, postcode)
+        if addr:
+            return addr
+
+        # Fallback: usa la calle de randomuser.me (real, pero no validada por Catastro)
+        max_num = _max_street_number(postcode)
+        ru_number = int(loc["street"]["number"]) if str(loc["street"]["number"]).isdigit() else random.randint(1, max_num)
+        ru_number = min(ru_number, max_num)
         return {
-            "address1": f"{loc['street']['name']} {loc['street']['number']}",
-            "city": loc["city"],
-            "zip_code": postcode,
-            "province_code": province_code,
+            "address1":     f"{loc['street']['name']} {ru_number}",
+            "city":         city,
+            "zip_code":     postcode,
+            "province_code": prov_code,
+            "fuente":       "RandomUser",
         }
     except Exception:
         addr = random.choice(SPAIN_ADDRESSES)
+        max_num = _max_street_number(addr["zip"])
         return {
-            "address1": f"{random.choice(STREET_NAMES)} {random.randint(1, 150)}",
-            "city": addr["city"],
-            "zip_code": addr["zip"],
+            "address1":     f"{random.choice(STREET_NAMES)} {random.randint(1, max_num)}",
+            "city":         addr["city"],
+            "zip_code":     addr["zip"],
             "province_code": addr["province_code"],
+            "fuente":       "FALLBACK",
         }
 
+
+# ── CustomerGenerator ─────────────────────────────────────────────────────────
 
 class CustomerGenerator:
     def __init__(self, province: str = None):
@@ -159,11 +353,13 @@ class CustomerGenerator:
         last_name = f"{random.choice(LAST_NAMES)} {random.choice(LAST_NAMES)}"
         addr = _fetch_address_from_api(self.province_code)
         hex_id = uuid.uuid4().hex[:6]
+
         address2 = None
         if random.random() < 0.4:
             floor = random.randint(1, 10)
-            door = random.choice(["A","B","C","D","Izq","Dcha"])
+            door = random.choice(["A", "B", "C", "D", "Izq", "Dcha"])
             address2 = f"Piso {floor}, {door}"
+
         return FakeCustomer(
             email=f"bottest.{_sanitize_for_email(first_name)}.{hex_id}@example.com",
             first_name=first_name,
@@ -177,4 +373,5 @@ class CustomerGenerator:
             country="Spain",
             country_code="ES",
             dni=_generate_dni(),
+            fuente=addr.get("fuente", "FALLBACK"),
         )

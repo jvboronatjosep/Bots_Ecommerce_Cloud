@@ -2,8 +2,10 @@ import json
 import random
 import re
 import unicodedata
+import urllib.parse
 import urllib.request
 import uuid
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Optional
 
@@ -14,19 +16,187 @@ from data.addresses import (
     PROVINCE_BY_ZIP_PREFIX, PROVINCE_PREFIXES, PROVINCE_NAME_TO_CODE,
 )
 
+# ── Catastro ──────────────────────────────────────────────────────────────────
+
+_CATASTRO_BASE = (
+    "https://ovc.catastro.meh.es/ovcservweb/"
+    "ovcswlocalizacionrc/ovccallejero.asmx"
+)
+_CATASTRO_NS = "http://www.catastro.meh.es/"
+
+TIPO_VIA_TO_FULL = {
+    "CL": "Calle",    "AV": "Avenida",  "PS": "Paseo",      "CM": "Camino",
+    "PL": "Plaza",    "TR": "Travesía", "RD": "Ronda",      "GV": "Gran Vía",
+    "CR": "Carretera","GL": "Glorieta", "AL": "Alameda",    "PZ": "Plazuela",
+    "CJ": "Callejón", "BO": "Barrio",   "LG": "Lugar",      "VL": "Vial",
+    "BV": "Bulevar",  "SN": "Senda",    "UR": "Urbanización",
+}
+
+PROVINCE_CODE_TO_NAME = {
+    "VI": "Álava",     "AB": "Albacete",  "A": "Alicante",   "AL": "Almería",
+    "AV": "Ávila",     "BA": "Badajoz",   "PM": "Baleares",  "B": "Barcelona",
+    "BU": "Burgos",    "CC": "Cáceres",   "CA": "Cádiz",     "CS": "Castellón",
+    "CR": "Ciudad Real","CO": "Córdoba",  "C": "La Coruña",  "CU": "Cuenca",
+    "GI": "Gerona",    "GR": "Granada",   "GU": "Guadalajara","SS": "Guipúzcoa",
+    "H": "Huelva",     "HU": "Huesca",    "J": "Jaén",       "LE": "León",
+    "L": "Lérida",     "LO": "La Rioja",  "LU": "Lugo",
+    "M": "Madrid",     "MD": "Madrid",
+    "MA": "Málaga",    "MU": "Murcia",    "NA": "Navarra",
+    "OR": "Orense",    "O": "Asturias",   "P": "Palencia",   "GC": "Las Palmas",
+    "PO": "Pontevedra","SA": "Salamanca", "TF": "Santa Cruz de Tenerife",
+    "S": "Cantabria",  "SG": "Segovia",   "SE": "Sevilla",   "SO": "Soria",
+    "T": "Tarragona",  "TE": "Teruel",    "TO": "Toledo",    "V": "Valencia",
+    "VA": "Valladolid","BI": "Vizcaya",   "ZA": "Zamora",    "Z": "Zaragoza",
+    "CE": "Ceuta",     "ML": "Melilla",
+}
+
+_street_cache: dict[str, list[dict]] = {}
+_number_cache: dict[str, list[str]] = {}
+
+
+def _catastro_tag(tag: str) -> str:
+    return f"{{{_CATASTRO_NS}}}{tag}"
+
+
+def _catastro_get(method: str, params: dict) -> Optional[ET.Element]:
+    try:
+        qs = urllib.parse.urlencode(params)
+        url = f"{_CATASTRO_BASE}/{method}?{qs}"
+        req = urllib.request.Request(url, headers={"Accept": "text/xml"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return ET.fromstring(resp.read())
+    except Exception:
+        return None
+
+
+def _find_all(root: ET.Element, tag: str) -> list[ET.Element]:
+    result = list(root.iter(_catastro_tag(tag)))
+    return result if result else list(root.iter(tag))
+
+
+def _find_text(elem: ET.Element, tag: str) -> str:
+    child = elem.find(_catastro_tag(tag))
+    if child is None:
+        child = elem.find(tag)
+    return (child.text or "").strip() if child is not None else ""
+
+
+def _catastro_callejero(province_name: str, city: str) -> list[dict]:
+    key = f"{province_name.upper()}:{city.upper()}"
+    if key in _street_cache:
+        return _street_cache[key]
+    root = _catastro_get("ConsultaVia", {
+        "Provincia": province_name.upper(),
+        "Municipio": city.upper(),
+    })
+    streets: list[dict] = []
+    if root is not None:
+        for have in _find_all(root, "have"):
+            tv = _find_text(have, "tv")
+            nv = _find_text(have, "nv")
+            if tv and nv:
+                streets.append({"tipo_via": tv, "nombre_via": nv})
+    _street_cache[key] = streets
+    return streets
+
+
+def _catastro_numeros(province_name: str, city: str,
+                      tipo_via: str, nombre_via: str) -> list[str]:
+    key = f"{province_name.upper()}:{city.upper()}:{tipo_via}:{nombre_via}"
+    if key in _number_cache:
+        return _number_cache[key]
+    root = _catastro_get("ConsultaNumero", {
+        "Provincia": province_name.upper(),
+        "Municipio": city.upper(),
+        "TipoVia":   tipo_via.upper(),
+        "NombreVia": nombre_via.upper(),
+    })
+    numbers: list[str] = []
+    if root is not None:
+        for pnp in _find_all(root, "pnp"):
+            val = (pnp.text or "").strip()
+            if val.isdigit():
+                numbers.append(val)
+    _number_cache[key] = numbers
+    return numbers
+
+
+def _max_street_number(cp: str) -> int:
+    suffix = int(cp[2:]) if len(cp) == 5 and cp[2:].isdigit() else 999
+    return 250 if suffix <= 99 else 50
+
+
+def _fetch_address_from_catastro(province_code: str, city: str, cp: str,
+                                  state_id: str = "0") -> Optional[dict]:
+    province_name = PROVINCE_CODE_TO_NAME.get(province_code)
+    if not province_name:
+        return None
+    streets = _catastro_callejero(province_name, city)
+    if not streets:
+        return None
+    candidates = random.sample(streets, min(5, len(streets)))
+    for street in candidates:
+        numbers = _catastro_numeros(
+            province_name, city, street["tipo_via"], street["nombre_via"]
+        )
+        if numbers:
+            numero = random.choice(numbers)
+            tipo_full = TIPO_VIA_TO_FULL.get(street["tipo_via"], "Calle")
+            nombre = street["nombre_via"].title()
+            return {
+                "address1":     f"{tipo_full} {nombre} {numero}",
+                "city":         city,
+                "zip_code":     cp,
+                "province_code": province_code,
+                "state_id":     state_id,
+                "fuente":       "OVCCatastro",
+            }
+    return None
+
 
 def _sanitize_for_email(text: str) -> str:
     normalized = unicodedata.normalize("NFD", text)
     ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
-    ascii_text = re.sub(r"[^a-z0-9]", "", ascii_text.lower())
-    return ascii_text or "user"
+    return re.sub(r"[^a-z0-9]", "", ascii_text.lower()) or "user"
 
 
 def _generate_dni() -> str:
     letters = "TRWAGMYFPDXBNJZSQVHLCKE"
     number = random.randint(10000000, 99999999)
-    letter = letters[number % 23]
-    return f"{number}{letter}"
+    return f"{number}{letters[number % 23]}"
+
+
+FIRST_NAMES_MALE = [
+    "Alejandro","Alfonso","Álvaro","Andrés","Antonio","Arturo","Borja",
+    "Carlos","César","Cristian","Daniel","David","Diego","Eduardo",
+    "Emilio","Enrique","Ernesto","Esteban","Felipe","Fernando","Francisco",
+    "Gabriel","Gonzalo","Guillermo","Gustavo","Héctor","Hugo","Ignacio",
+    "Iván","Jaime","Javier","Jorge","José","Juan","Julián","Lorenzo",
+    "Lucas","Luis","Manuel","Marcos","Mario","Martín","Mateo","Miguel",
+    "Nicolás","Óscar","Pablo","Pedro","Rafael","Raúl","Ricardo","Roberto",
+    "Rodrigo","Rubén","Salvador","Santiago","Sergio","Tomás","Víctor",
+]
+
+FIRST_NAMES_FEMALE = [
+    "Adriana","Alba","Alejandra","Alicia","Ana","Andrea","Beatriz",
+    "Blanca","Carla","Carmen","Carolina","Claudia","Cristina","Elena",
+    "Elisa","Eva","Gloria","Inés","Irene","Isabel","Jessica","Laura",
+    "Lucía","Luna","Marta","María","Marina","Mercedes","Miriam","Mónica",
+    "Natalia","Nuria","Olga","Patricia","Pilar","Raquel","Rosa",
+    "Sandra","Sara","Silvia","Sofía","Sonia","Teresa","Valentina",
+    "Valeria","Verónica","Victoria","Virginia","Yolanda",
+]
+
+LAST_NAMES = [
+    "García","Martínez","López","Sánchez","González","Rodríguez","Fernández",
+    "Pérez","Gómez","Martín","Jiménez","Ruiz","Hernández","Díaz","Moreno",
+    "Álvarez","Muñoz","Romero","Alonso","Gutiérrez","Navarro","Torres",
+    "Domínguez","Vázquez","Ramos","Gil","Ramírez","Serrano","Blanco",
+    "Suárez","Molina","Morales","Ortega","Delgado","Castro","Ortiz",
+    "Rubio","Marín","Sanz","Iglesias","Nuñez","Medina","Garrido","Cortés",
+    "Castillo","Santos","Lozano","Guerrero","Cano","Prieto","Méndez",
+    "Cruz","Calvo","Gallego","Vidal","León","Cabrera","Ibáñez","Herrera",
+]
 
 
 @dataclass
@@ -44,41 +214,7 @@ class FakeCustomer:
     country: str
     country_code: str
     dni: str
-
-
-FIRST_NAMES_MALE = [
-    "Alejandro", "Alfonso", "Álvaro", "Andrés", "Antonio", "Arturo", "Borja",
-    "Carlos", "César", "Cristian", "Daniel", "David", "Diego", "Eduardo",
-    "Emilio", "Enrique", "Ernesto", "Esteban", "Felipe", "Fernando", "Francisco",
-    "Gabriel", "Gonzalo", "Guillermo", "Gustavo", "Héctor", "Hugo", "Ignacio",
-    "Iván", "Jaime", "Javier", "Jorge", "José", "Juan", "Julián", "Lorenzo",
-    "Lucas", "Luis", "Manuel", "Marcos", "Mario", "Martín", "Mateo", "Miguel",
-    "Nicolás", "Óscar", "Pablo", "Pedro", "Rafael", "Raúl", "Ricardo", "Roberto",
-    "Rodrigo", "Rubén", "Salvador", "Santiago", "Sergio", "Tomás", "Víctor",
-]
-
-FIRST_NAMES_FEMALE = [
-    "Adriana", "Alba", "Alejandra", "Alicia", "Ana", "Andrea", "Beatriz",
-    "Blanca", "Carla", "Carmen", "Carolina", "Claudia", "Cristina", "Elena",
-    "Elisa", "Eva", "Gloria", "Inés", "Irene", "Isabel", "Jessica", "Laura",
-    "Lucía", "Luna", "Marta", "María", "Marina", "Mercedes", "Miriam", "Mónica",
-    "Natalia", "Nuria", "Olga", "Patricia", "Pilar", "Raquel", "Rosa",
-    "Sandra", "Sara", "Silvia", "Sofía", "Sonia", "Teresa", "Valentina",
-    "Valeria", "Verónica", "Victoria", "Virginia", "Yolanda",
-]
-
-LAST_NAMES = [
-    "García", "Martínez", "López", "Sánchez", "González", "Rodríguez", "Fernández",
-    "Pérez", "Gómez", "Martín", "Jiménez", "Ruiz", "Hernández", "Díaz", "Moreno",
-    "Álvarez", "Muñoz", "Romero", "Alonso", "Gutiérrez", "Navarro", "Torres",
-    "Domínguez", "Vázquez", "Ramos", "Gil", "Ramírez", "Serrano", "Blanco",
-    "Suárez", "Molina", "Morales", "Ortega", "Delgado", "Castro", "Ortiz",
-    "Rubio", "Marín", "Sanz", "Iglesias", "Nuñez", "Medina", "Garrido", "Cortés",
-    "Castillo", "Santos", "Lozano", "Guerrero", "Cano", "Prieto", "Méndez",
-    "Cruz", "Calvo", "Gallego", "Vidal", "León", "Cabrera", "Ibáñez", "Herrera",
-    "Arias", "Mora", "Vargas", "Carmona", "Crespo", "Campos", "Bravo", "Reyes",
-    "Vicente", "Esteban", "Fuentes", "Carrasco", "Aguilar", "Pascual", "Herrero",
-]
+    fuente: str = "FALLBACK"
 
 
 def _resolve_province_code(province: str) -> str:
@@ -88,18 +224,9 @@ def _resolve_province_code(province: str) -> str:
     return PROVINCE_NAME_TO_CODE.get(normalized, province.strip().upper())
 
 
-def _fetch_street_from_randomuser() -> str:
-    try:
-        with urllib.request.urlopen("https://randomuser.me/api/?nat=es", timeout=5) as resp:
-            data = json.loads(resp.read())
-        loc = data["results"][0]["location"]
-        return f"{loc['street']['name']} {loc['street']['number']}"
-    except Exception:
-        return f"{random.choice(STREET_NAMES)} {random.randint(1, 150)}"
-
-
 def _fetch_address_for_province(province_code: str) -> dict:
     prefix = PROVINCE_PREFIXES.get(province_code)
+    static_match = next((a for a in SPAIN_ADDRESSES if a["province_code"] == province_code), SPAIN_ADDRESSES[0])
     if prefix:
         for _ in range(5):
             cp = prefix + str(random.randint(1, 999)).zfill(3)
@@ -108,28 +235,33 @@ def _fetch_address_for_province(province_code: str) -> dict:
                 with urllib.request.urlopen(url, timeout=5) as resp:
                     data = json.loads(resp.read())
                 places = data.get("places", [])
-                if places:
-                    city = places[0]["place name"]
-                    street = _fetch_street_from_randomuser()
-                    # state_id is resolved dynamically from the DOM in checkout_handler
-                    static = next((a for a in SPAIN_ADDRESSES if a["province_code"] == province_code), SPAIN_ADDRESSES[0])
-                    return {
-                        "address1": street, "city": city, "zip_code": cp,
-                        "province_code": province_code, "state_id": static["state_id"],
-                    }
+                if not places:
+                    continue
+                city = places[0]["place name"]
+                addr = _fetch_address_from_catastro(
+                    province_code, city, cp, state_id=static_match["state_id"]
+                )
+                if addr:
+                    return addr
+                max_num = _max_street_number(cp)
+                return {
+                    "address1":     f"{random.choice(STREET_NAMES)} {random.randint(1, max_num)}",
+                    "city":         city,
+                    "zip_code":     cp,
+                    "province_code": province_code,
+                    "state_id":     static_match["state_id"],
+                    "fuente":       "FALLBACK",
+                }
             except Exception:
                 continue
-
-    province_addrs = [a for a in SPAIN_ADDRESSES if a["province_code"] == province_code]
-    if not province_addrs:
-        province_addrs = SPAIN_ADDRESSES
-    addr = random.choice(province_addrs)
+    max_num = _max_street_number(static_match["zip"])
     return {
-        "address1": f"{random.choice(STREET_NAMES)} {random.randint(1, 150)}",
-        "city": addr["city"],
-        "zip_code": addr["zip"],
-        "province_code": addr["province_code"],
-        "state_id": addr["state_id"],
+        "address1":     f"{random.choice(STREET_NAMES)} {random.randint(1, max_num)}",
+        "city":         static_match["city"],
+        "zip_code":     static_match["zip"],
+        "province_code": static_match["province_code"],
+        "state_id":     static_match["state_id"],
+        "fuente":       "FALLBACK",
     }
 
 
@@ -142,22 +274,33 @@ def _fetch_address_from_api(province_code: str = None) -> dict:
         loc = data["results"][0]["location"]
         postcode = str(loc["postcode"]).zfill(5)
         prov_code = PROVINCE_BY_ZIP_PREFIX.get(postcode[:2], "M")
-        static = next((a for a in SPAIN_ADDRESSES if a["province_code"] == prov_code), SPAIN_ADDRESSES[0])
+        city = loc["city"]
+        static_match = next(
+            (a for a in SPAIN_ADDRESSES if a["province_code"] == prov_code), SPAIN_ADDRESSES[0]
+        )
+        addr = _fetch_address_from_catastro(prov_code, city, postcode, state_id=static_match["state_id"])
+        if addr:
+            return addr
+        max_num = _max_street_number(postcode)
+        ru_num = int(loc["street"]["number"]) if str(loc["street"]["number"]).isdigit() else random.randint(1, max_num)
         return {
-            "address1": f"{loc['street']['name']} {loc['street']['number']}",
-            "city": loc["city"],
-            "zip_code": postcode,
+            "address1":     f"{loc['street']['name']} {min(ru_num, max_num)}",
+            "city":         city,
+            "zip_code":     postcode,
             "province_code": prov_code,
-            "state_id": static["state_id"],
+            "state_id":     static_match["state_id"],
+            "fuente":       "RandomUser",
         }
     except Exception:
         addr = random.choice(SPAIN_ADDRESSES)
+        max_num = _max_street_number(addr["zip"])
         return {
-            "address1": f"{random.choice(STREET_NAMES)} {random.randint(1, 150)}",
-            "city": addr["city"],
-            "zip_code": addr["zip"],
+            "address1":     f"{random.choice(STREET_NAMES)} {random.randint(1, max_num)}",
+            "city":         addr["city"],
+            "zip_code":     addr["zip"],
             "province_code": addr["province_code"],
-            "state_id": addr["state_id"],
+            "state_id":     addr["state_id"],
+            "fuente":       "FALLBACK",
         }
 
 
@@ -192,4 +335,5 @@ class CustomerGenerator:
             country="Spain",
             country_code="ES",
             dni=_generate_dni(),
+            fuente=addr.get("fuente", "FALLBACK"),
         )
