@@ -151,6 +151,14 @@ def _load_real_addresses_from_csvs() -> dict[str, list[dict]]:
                     province_code = PROVINCE_BY_ZIP_PREFIX.get(zip_code[:2])
                     if not province_code:
                         continue
+                    city_normalized = city.casefold()
+                    # En provincias de prueba, evita poblaciones satélite:
+                    # solo capital Madrid/Barcelona.
+                    if province_code == "MD" and city_normalized != "madrid":
+                        continue
+                    if province_code == "B" and city_normalized != "barcelona":
+                        continue
+
                     key = (address1.lower(), city.lower(), zip_code)
                     if key in seen:
                         continue
@@ -426,6 +434,10 @@ def _fetch_address_from_api(province_code: str = None) -> dict:
     """
     if province_code:
         return _fetch_address_for_province(province_code)
+
+    # Modo prueba sin provincia: reparte entre Madrid y Barcelona para que
+    # ambos salgan en pedidos aleatorios/diarios.
+    return _fetch_address_for_province(random.choice(["MD", "B"]))
 
     try:
         with urllib.request.urlopen("https://randomuser.me/api/?nat=es", timeout=5) as resp:
