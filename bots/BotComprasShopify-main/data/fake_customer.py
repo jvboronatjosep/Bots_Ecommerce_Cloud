@@ -137,6 +137,11 @@ def _load_real_addresses_from_csvs() -> dict[str, list[dict]]:
                     province_code = PROVINCE_BY_ZIP_PREFIX.get(zip_code[:2])
                     if not province_code:
                         continue
+                    city_normalized = city.casefold()
+                    if province_code == "MD" and city_normalized != "madrid":
+                        continue
+                    if province_code == "B" and city_normalized != "barcelona":
+                        continue
                     key = (address1.lower(), city.lower(), zip_code)
                     if key in seen:
                         continue
@@ -321,6 +326,9 @@ def _fetch_address_from_api(province_code: str = None) -> dict:
         loc = data["results"][0]["location"]
         postcode = str(loc["postcode"]).zfill(5)
         prov_code = PROVINCE_BY_ZIP_PREFIX.get(postcode[:2], "M")
+        if prov_code in {"MD", "B", "M"}:
+            target_code = "MD" if prov_code == "M" else prov_code
+            return _fetch_address_for_province(target_code)
         city = loc["city"]
         addr = _fetch_address_from_catastro(prov_code, city, postcode)
         if addr:
