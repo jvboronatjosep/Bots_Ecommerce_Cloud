@@ -18,6 +18,12 @@ from data.addresses import (
     SPAIN_ADDRESSES, STREET_NAMES,
     PROVINCE_BY_ZIP_PREFIX, PROVINCE_PREFIXES, PROVINCE_NAME_TO_CODE,
 )
+from data.database import CloudSQLConnection, AddressRepository, format_address_from_db
+
+# ── Cloud SQL Database ────────────────────────────────────────────────────────
+
+_db_connection = CloudSQLConnection()
+_address_repo = AddressRepository(_db_connection)
 
 _SMALL_TOWN_STREETS = [
     "Calle Mayor", "Calle Real", "Calle Nueva", "Calle del Sol",
@@ -317,7 +323,38 @@ def _fetch_address_for_province(province_code: str) -> dict:
     return _province_error_address()
 
 
+def _fetch_address_from_cloudsql(province_code: str = None) -> dict:
+    """Obtiene dirección de Cloud SQL con fallback a Catastro."""
+    try:
+        db_record = None
+
+        if province_code:
+            db_record = _address_repo.get_address_by_province(province_code)
+            if not db_record:
+                print(f"⚠️  No hay datos en Cloud SQL para provincia {province_code}, usando fallback")
+        else:
+            db_record = _address_repo.get_random_address()
+
+        if db_record:
+            addr_dict = format_address_from_db(db_record)
+            return {
+                "address1": addr_dict["address1"],
+                "city": addr_dict["city"],
+                "zip_code": addr_dict["zip_code"],
+                "province_code": addr_dict["province_code"],
+                "fuente": "CloudSQL",
+            }
+    except Exception as e:
+        print(f"❌ Error Cloud SQL: {e}")
+    return None
+
+
 def _fetch_address_from_api(province_code: str = None) -> dict:
+    # Primero intentar Cloud SQL
+    cloudsql_addr = _fetch_address_from_cloudsql(province_code)
+    if cloudsql_addr:
+        return cloudsql_addr
+
     if province_code:
         return _fetch_address_for_province(province_code)
     try:
