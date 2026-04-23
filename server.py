@@ -114,8 +114,18 @@ def auto_run_all():
     for b_id in BOTS.keys():
         run_id, error = execute_bot_logic(b_id, orders=10, headless=True)
         launched.append({"bot": b_id, "run_id": run_id, "error": error})
-    
+
     return jsonify({"status": "Automation Triggered", "details": launched})
+
+@app.route('/api/run-all-5', methods=['POST'])
+def run_all_5():
+    """Lanza los 4 bots con 5 pedidos cada uno"""
+    launched = []
+    for b_id in BOTS.keys():
+        run_id, error = execute_bot_logic(b_id, orders=5, headless=True)
+        launched.append({"bot": b_id, "bot_name": BOTS[b_id]["name"], "run_id": run_id, "error": error})
+
+    return jsonify({"status": "started", "details": launched})
 
 @app.route('/api/run', methods=['POST'])
 def start_run():
