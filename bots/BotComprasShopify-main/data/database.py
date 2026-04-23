@@ -117,6 +117,8 @@ class AddressRepository:
         normalized = province_identifier.upper().strip()
         return self.PROVINCE_TABLE_MAP.get(normalized)
 
+    _VALID_ADDRESS_FILTER = "nombre_via IS NOT NULL AND TRIM(nombre_via) != ''"
+
     def get_address_by_province(self, province_code: str) -> Optional[Dict]:
         """Obtiene dirección aleatoria de provincia específica."""
         table_name = self._get_table_for_province(province_code)
@@ -126,7 +128,7 @@ class AddressRepository:
         try:
             with self.db.get_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    query = f"SELECT nombre_via, numero, cod_postal, municipio, provincia, poblacion FROM {table_name} ORDER BY RANDOM() LIMIT 1"
+                    query = f"SELECT nombre_via, numero, cod_postal, municipio, provincia, poblacion FROM {table_name} WHERE {self._VALID_ADDRESS_FILTER} ORDER BY RANDOM() LIMIT 1"
                     cur.execute(query)
                     result = cur.fetchone()
                     return dict(result) if result else None
@@ -136,19 +138,24 @@ class AddressRepository:
 
     def get_random_address(self) -> Optional[Dict]:
         """Obtiene dirección aleatoria de todas las provincias."""
-        try:
-            tables = list(set([t for t in self.PROVINCE_TABLE_MAP.values()]))
-            random_table = random.choice(tables)
+        tables = list(set(self.PROVINCE_TABLE_MAP.values()))
+        random.shuffle(tables)
 
-            with self.db.get_connection() as conn:
-                with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    query = f"SELECT nombre_via, numero, cod_postal, municipio, provincia, poblacion FROM {random_table} ORDER BY RANDOM() LIMIT 1"
-                    cur.execute(query)
-                    result = cur.fetchone()
-                    return dict(result) if result else None
-        except Exception as e:
-            print(f"Error obtener dirección aleatoria: {e}")
-            return None
+        for table in tables:
+            try:
+                with self.db.get_connection() as conn:
+                    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                        query = f"SELECT nombre_via, numero, cod_postal, municipio, provincia, poblacion FROM {table} WHERE {self._VALID_ADDRESS_FILTER} ORDER BY RANDOM() LIMIT 1"
+                        cur.execute(query)
+                        result = cur.fetchone()
+                        if result:
+                            return dict(result)
+            except Exception as e:
+                print(f"Error obtener dirección aleatoria de {table}: {e}")
+                continue
+
+        print("Error obtener dirección aleatoria: ninguna tabla devolvió resultado válido")
+        return None
 
     def get_addresses_batch(self, province_code: str = None, limit: int = 10) -> List[Dict]:
         """Obtiene lote de direcciones."""
@@ -158,12 +165,12 @@ class AddressRepository:
                 if not table_name:
                     return []
             else:
-                tables = list(set([t for t in self.PROVINCE_TABLE_MAP.values()]))
+                tables = list(set(self.PROVINCE_TABLE_MAP.values()))
                 table_name = random.choice(tables)
 
             with self.db.get_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    query = f"SELECT nombre_via, numero, cod_postal, municipio, provincia, poblacion FROM {table_name} ORDER BY RANDOM() LIMIT %s"
+                    query = f"SELECT nombre_via, numero, cod_postal, municipio, provincia, poblacion FROM {table_name} WHERE {self._VALID_ADDRESS_FILTER} ORDER BY RANDOM() LIMIT %s"
                     cur.execute(query, (limit,))
                     results = cur.fetchall()
                     return [dict(row) for row in results]
